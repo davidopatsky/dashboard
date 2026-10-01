@@ -2,8 +2,9 @@
 // Výpočty, pořadí a barevné škály jsou stejné jako ve skriptu v Sheetu; vzhled je vlastní (tmavý dashboard).
 //   Záložka Skóre: jedno období na obrazovku (celá doba / 3 měsíce / 30 dní), u každého skóre jeho složky.
 //   Záložka Měsíční data: obrat, zisk, marže, schůzky a nabídky po měsících pod sebou (scroll), celý rok led–pro;
-//   pod nimi leady a konverze (kanál A+B vs. OP od Sabiny) — počítané tady z „faktů" (?co=fakta), které Sheet
-//   ukládá po částech; u každé tabulky je vidět, z kterého stažení jsou její čísla.
+//   pod nimi leady a konverze (kanál A+B vs. OP od Sabiny) — počítané tady z „faktů" (?co=fakta) ze Sheetu.
+//   Sheet obnovuje vždy všechna data najednou; když obchody a leady přesto nejsou ze stejného stažení jako
+//   snímek (obnova nedoběhla), konverze se nezobrazí — místo zkreslených čísel je výzva k obnově.
 // Přístup: heslo ověřuje skript v Sheetu (?co=vedeni&h=…, ?co=fakta&h=…); stránka heslo nezná, jen ho pošle.
 (function () {
   'use strict';
@@ -232,9 +233,8 @@
 
 
   // ─────────────────── LEADY A KONVERZE (kanál A+B vs. OP od Sabiny) ───────────────────
-  // Zdroj = „fakta" ze Sheetu: počty po osobě × měsíci, uložené ZVLÁŠŤ za každou stahovanou část
-  // (obchody / leady) i s časem stažení. Konverze se počítají tady. Když část není ze stejného dne,
-  // tabulka to řekne — čísla se nemíchají potichu.
+  // Zdroj = „fakta" ze Sheetu: počty po osobě × měsíci, uložené při každé obnově dat (obchody, leady)
+  // i s časem stažení. Konverze se počítají tady.
   var SABINA = 'Sabina Kratochvíl';
   function faktaIndex(F) {
     var x = {};   // x[metrika][osoba][ymIdx]; osoba = zobrazované jméno OZ, jinak plné jméno vlastníka
@@ -245,18 +245,17 @@
     });
     return x;
   }
-  function kdy(s) { return s ? parseInt(s.substring(8, 10), 10) + '. ' + parseInt(s.substring(5, 7), 10) + '. ' + s.substring(11, 16) : '—'; }
-  function zdrojRadek(F, casti) {
-    var t = casti.map(function (k) { return (k === 'obchody' ? 'obchody' : 'leady') + ' ' + kdy(F.stav[k]); }).join(' · ');
-    var dny = casti.map(function (k) { return String(F.stav[k] || '').substring(0, 10); });
-    var jinak = dny.some(function (d) { return d !== dny[0]; });
-    return jinak ? '<p class="zdroj varovani">⚠ Zdroj: ' + esc(t) + ' — obchody a leady nejsou ze stejného dne, konverze je zkreslená. Stáhni v Sheetu obě části.</p>'
-                 : '<p class="zdroj">Zdroj: ' + esc(t) + '</p>';
-  }
+  function kdy(s) { return s ? parseInt(s.substring(8, 10), 10) + '. ' + parseInt(s.substring(5, 7), 10) + '. ' + s.substring(11, 16) : 'nikdy'; }
 
   function renderLeady(c, F) {
     var h = ['<div class="skupina">Leady a konverze · kanál A+B vs. OP od Sabiny</div>'];
-    if (!F) return h.join('') + '<div class="nic">Leady a konverze se zobrazí po aktualizaci nasazení skriptu v Sheetu a prvním stažení dat.</div>';
+    var obnov = 'V Sheetu klikni <b>📊 Dashboard → 🔄 Obnovit data pro dashboard</b> (nebo počkej na noční obnovu).';
+    if (!F) return h.join('') + '<div class="nic">Leady a konverze se zobrazí po první obnově dat. ' + obnov + '</div>';
+    var st = F.stav || {}, den = function (k) { return String(st[k] || '').substring(0, 10); };
+    if (den('obchody') !== c.todayStr || den('leady') !== c.todayStr) {
+      return h.join('') + '<div class="nic varovani">⚠ Leady a konverze nejsou ze stejného stažení jako zbytek dashboardu ' +
+        '(snímek ' + esc(vedDen(c.todayStr)) + ', obchody ' + esc(kdy(st.obchody)) + ', leady ' + esc(kdy(st.leady)) + '), konverze by byla zkreslená. ' + obnov + '</div>';
+    }
     var x = faktaIndex(F), curYm = c.year * 12 + c.curMonthIdx + 1, months = rokMesice(c);
     var ord = c.rowsOZ.slice().sort(function (a, b) { return (c.ratC[b[0]] - c.ratC[a[0]]) || (c.ratQ[b[0]] - c.ratQ[a[0]]); }).map(function (r) { return r[0]; });
     var jeOZ = {}; ord.forEach(function (d) { jeOZ[d] = true; });
@@ -269,7 +268,7 @@
     // Přidělené leady A+B — validní leady (fáze ≠ Zrušený), vlastník = OZ; Tým = všechny validní leady firmy
     var ostL = ostatni('leady_validni'), vsiL = ord.concat([SABINA], ostL);
     h.push(tabulka(c, months, curYm, {
-      nazev: 'Přidělené leady A+B', popis: 'validní leady (bez zrušených), vlastník = obchodník · zelená = méně leadů', zdroj: zdrojRadek(F, ['leady']),
+      nazev: 'Přidělené leady A+B', popis: 'validní leady (bez zrušených), vlastník = obchodník · zelená = méně leadů',
       typ: 'pocet', obracene: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('leady_validni', d, k); } }; })
         .concat([{ nazev: 'Sabina (pre-sales)', v: function (k) { return g('leady_validni', SABINA, k); } }])
@@ -280,7 +279,7 @@
     var konvAB = function (kdos) { return function (k) {
       var l = g2('leady_validni', kdos, k); return { n: g2('vyhry', kdos, k) - g2('op_sabina_vyhra', kdos, k), d: l }; }; };
     h.push(tabulka(c, months, curYm, {
-      nazev: 'Konverze A+B', popis: '(výhry − vyhraná OP od Sabiny) ÷ validní leady · měsíční % je orientační, spolehlivý je součet', zdroj: zdrojRadek(F, ['obchody', 'leady']),
+      nazev: 'Konverze A+B', popis: '(výhry − vyhraná OP od Sabiny) ÷ validní leady · měsíční % je orientační, spolehlivý je součet',
       typ: 'podil', fmt: proc, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, p: konvAB([d]) }; }),
       tym: konvAB(ord), tymNazev: 'Tým (obchodníci)'
@@ -288,7 +287,7 @@
     // Přidělené OP od Sabiny — kategorie S-zaměření, jakýkoli stav, měsíc dle otevření OP
     var ostS = ostatni('op_sabina'), vsiS = ord.concat(ostS);
     h.push(tabulka(c, months, curYm, {
-      nazev: 'Přidělené OP od Sabiny', popis: 'obchodní případy kategorie S-zaměření (jakýkoli stav), měsíc dle otevření · zelená = méně', zdroj: zdrojRadek(F, ['obchody']),
+      nazev: 'Přidělené OP od Sabiny', popis: 'obchodní případy kategorie S-zaměření (jakýkoli stav), měsíc dle otevření · zelená = méně',
       typ: 'pocet', obracene: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('op_sabina', d, k); } }; })
         .concat(ostS.length ? [{ nazev: 'Ostatní', title: ostS.join(', '), v: function (k) { return g2('op_sabina', ostS, k); } }] : []),
@@ -297,7 +296,7 @@
     // Konverze OP od Sabiny = vyhraná ÷ přidělená (obojí dle měsíce otevření OP)
     var konvS = function (kdos) { return function (k) { return { n: g2('op_sabina_vyhra', kdos, k), d: g2('op_sabina', kdos, k) }; }; };
     h.push(tabulka(c, months, curYm, {
-      nazev: 'Konverze OP od Sabiny', popis: 'vyhraná ÷ přidělená OP od Sabiny, měsíc dle otevření OP', zdroj: zdrojRadek(F, ['obchody']),
+      nazev: 'Konverze OP od Sabiny', popis: 'vyhraná ÷ přidělená OP od Sabiny, měsíc dle otevření OP',
       typ: 'podil', fmt: proc, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, p: konvS([d]) }; })
         .concat(ostS.length ? [{ nazev: 'Ostatní', title: ostS.join(', '), p: konvS(ostS) }] : []),
@@ -352,7 +351,7 @@
       if (k > curYm) return '<td class="bud"></td>';
       var v = hodnota(T, k); return '<td>' + esc(v === null ? '–' : t.fmt(v)) + '</td>';
     }).join('') + '<td class="sep">' + esc(celkem(T)) + '</td></tr></tbody></table></div>');
-    return h.join('') + t.zdroj;
+    return h.join('');
   }
 
   // ─────────────────────────── OKNO ⓘ ───────────────────────────
@@ -364,7 +363,8 @@
       '<p>Probíhající měsíc je neúplný, výhry se zapisují hlavně na konci měsíce. Zakázky bez částky nejsou započteny.</p>' +
       '<p><b>Měsíční data:</b> barva = srovnání v rámci tabulky (zelená vyšší, červená nižší). Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' +
       vedMil(c.hranice) + '. Šedý sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí.</p>' +
-      '<p><b>Leady a konverze</b> se počítají z dat, která Sheet ukládá zvlášť za každé stažení (obchody / leady). Pod každou tabulkou je, z kterého stažení jsou; když obchody a leady nejsou ze stejného dne, konverze se označí jako zkreslená. ' +
+      '<p><b>Data</b> se v Sheetu obnovují vždy celá najednou — každou noc mezi 5. a 6. hodinou, nebo tlačítkem 📊 Dashboard → 🔄 Obnovit data pro dashboard. ' +
+      'Kdyby obnova nedoběhla a leady s obchody nebyly ze stejného stažení, konverze se nezobrazí (byla by zkreslená).</p><p><b>Leady a konverze:</b> ' +
       'Konverze A+B = (výhry − vyhraná OP od Sabiny) ÷ validní leady; u přidělených leadů a OP od Sabiny je zelená ten, kdo jich má méně. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Sloupec Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
       '<p><b>Podklady u skóre:</b> výhry = počet vyhraných zakázek, Ø zakázka = obrat ÷ výhry, marže = zisk ÷ obrat, nabídky = vytvořené nabídky.</p>' +
       '<p style="color:var(--muted)">Data: snímek ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '.</p>';

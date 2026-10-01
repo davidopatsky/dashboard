@@ -87,8 +87,6 @@
   .sekce-m h2 { margin: 0; font-size: 18px; font-weight: 700; }
   .sekce-m span { color: var(--muted); font-size: 14px; }
   .skupina { margin: 40px 0 0; padding-top: 14px; border-top: 2px solid var(--line-2); font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
-  .zdroj { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
-  .zdroj.varovani { color: #FFD27A; font-weight: 700; }
   table.mx th.mes, table.mx td { min-width: 78px; }
   table.mx th.akt { color: var(--accent); }
   table.mx th.bud { color: var(--dim); }
@@ -101,6 +99,7 @@
   table.mx tr.ost td.oz { color: var(--muted); font-weight: 500; }
   table.mx td.alarm { background: var(--alarm) !important; color: #FFFFFF !important; font-weight: 900; }
   .nic { padding: 16px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line-2); border-radius: 8px; }
+  .nic.varovani { color: #FFE2A8; border: 1px solid #B7791F; background: #2A2213; }
 
   .login { max-width: 360px; margin: 12vh auto 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
   .login h2 { margin: 0 0 6px; font-size: 20px; }
@@ -148,6 +147,6 @@
 <main id="obsah"><div class="msg">Načítám data…</div></main>
 <dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=18"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
+<script src="app.js?v=19"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
 </body>
 </html>
