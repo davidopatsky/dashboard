@@ -4,48 +4,133 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Výkon obchodníků · Pro vedení</title>
+<meta name="color-scheme" content="dark">
+<title>Výkon obchodníků</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap&subset=latin-ext" rel="stylesheet">
 <style>
-  body { margin: 0; background: #FFFFFF; color: #111827; font-family: Arial, Helvetica, sans-serif; font-size: 10pt; }
-  .lista { position: sticky; top: 0; z-index: 10; background: #FFFFFF; border-bottom: 1px solid #D1D5DB;
-           display: flex; align-items: center; gap: 12px; padding: 8px 16px; flex-wrap: wrap; }
-  .lista h1 { margin: 0; font-size: 16pt; color: #1F4E78; font-weight: bold; }
-  .lista .stav { color: #6B7280; font-size: 10pt; }
-  .lista button { margin-left: auto; font: inherit; font-weight: bold; color: #1F4E78; background: #DDE4EE;
-                  border: 1px solid #B7C4D6; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
-  main { padding: 12px 16px 40px; overflow-x: auto; }
-  .sekce { font-size: 10pt; font-weight: bold; color: #2F5597; margin: 18px 0 6px; white-space: nowrap; }
-  .radaA { display: flex; gap: 0; align-items: flex-start; }
-  table.t { border-collapse: collapse; table-layout: fixed; }
-  table.t td { border: 1px solid #D1D5DB; padding: 2px 5px; height: 21px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  td.grp { color: #FFFFFF; font-weight: bold; font-size: 9pt; text-align: center; }
-  td.hA { background: #DDE4EE; color: #1F4E78; font-weight: bold; text-align: center; white-space: normal !important; height: 32px !important; line-height: 1.15; }
-  td.hM { background: #1F4E78; color: #FFFFFF; font-weight: bold; text-align: center; }
-  td.oz { font-weight: bold; }
-  td.od { text-align: center; color: #6B7280; }
-  td.sk { font-weight: bold; font-size: 12pt; text-align: center; }
-  td.n  { text-align: right; }
-  td.tym { background: #EFEFEF; font-weight: bold; }
-  td.cel { font-weight: bold; }
-  td.alarm { background: #C0392B !important; color: #FFFFFF !important; font-weight: bold; }
-  .chyba { padding: 24px; color: #991B1B; }
-  .nacitam { padding: 24px; color: #6B7280; }
-  dialog { border: 1px solid #D1D5DB; border-radius: 10px; max-width: 620px; padding: 20px 22px; color: #111827; }
-  dialog h2 { margin: 0 0 10px; font-size: 13pt; color: #1F4E78; }
-  dialog table { border-collapse: collapse; margin: 8px 0 12px; }
-  dialog td { border: 1px solid #D1D5DB; padding: 4px 10px; }
-  dialog p { line-height: 1.5; margin: 8px 0; }
-  dialog .zavrit { float: right; font: inherit; border: 0; background: none; font-size: 16pt; cursor: pointer; color: #6B7280; }
-  @media print { .lista button { display: none; } .lista { position: static; } }
+  :root {
+    --bg: #0B1120; --panel: #121A2B; --panel-2: #172238; --line: #24314A; --line-2: #2E3D5C;
+    --text: #E8EDF5; --muted: #9AA8BF; --dim: #6B7A93; --accent: #7CB4FF; --accent-2: #3B82F6;
+    --ink: #0F172A;           /* text na barevných (heat) polích */
+    --alarm: #E5484D;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, "Segoe UI", Arial, sans-serif; font-size: 15px; line-height: 1.4; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* horní lišta */
+  .top { position: sticky; top: 0; z-index: 20; background: rgba(11,17,32,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+  .top-in { max-width: 1280px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: -.01em; }
+  .brand .stav { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .tabs { display: flex; gap: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+  .tabs button { border: 0; background: none; padding: 8px 16px; border-radius: 7px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .tabs button[aria-pressed="true"] { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
+  .info { margin-left: auto; border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-weight: 600; color: var(--accent); cursor: pointer; }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 22px 20px 60px; }
+  .bar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 18px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; }
+  .seg button { border: 0; background: none; padding: 10px 18px; border-radius: 9px; font-weight: 700; font-size: 15px; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent-2); color: #FFFFFF; }
+  .bar .pozn { color: var(--muted); font-size: 14px; }
+
+  /* SKÓRE */
+  .rank { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .rhead, .rrow { display: grid; grid-template-columns: 44px minmax(150px, 1.1fr) 96px repeat(3, minmax(170px, 1fr)) 132px; align-items: center; gap: 14px; padding: 0 18px; }
+  .rhead { height: 44px; color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .rrow { min-height: 78px; border-bottom: 1px solid var(--line); }
+  .rrow:last-child { border-bottom: 0; }
+  .poradi { font-size: 18px; font-weight: 800; color: var(--dim); text-align: center; }
+  .jmeno { font-weight: 700; font-size: 17px; }
+  .jmeno small { display: block; color: var(--muted); font-weight: 500; font-size: 13px; margin-top: 2px; }
+  .skore { width: 72px; height: 52px; border-radius: 10px; display: grid; place-items: center; font-size: 26px; font-weight: 800; color: var(--ink); }
+  .slozka .v { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .slozka .v b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .slozka .v span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .slozka .v em.lbl { display: none; font-style: normal; color: var(--muted); font-size: 13px; font-weight: 600; min-width: 62px; }
+  .track { height: 8px; background: #1E2A42; border-radius: 999px; margin-top: 7px; overflow: hidden; }
+  .track i { display: block; height: 100%; border-radius: 999px; }
+  .ostatni { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  .ostatni div { display: flex; justify-content: space-between; gap: 8px; }
+  .ostatni b { color: var(--text); font-variant-numeric: tabular-nums; min-width: 26px; text-align: center; border-radius: 5px; padding: 0 4px; color: var(--ink); }
+  .legenda-skore { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+  /* MĚSÍČNÍ DATA */
+  .karta { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px; overflow-x: auto; }
+  table.mx { border-collapse: separate; border-spacing: 3px; width: 100%; font-variant-numeric: tabular-nums; }
+  table.mx th { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 10px 8px; text-align: right; white-space: nowrap; }
+  table.mx th:first-child, table.mx td:first-child { text-align: left; position: sticky; left: 0; background: var(--panel); z-index: 1;
+    box-shadow: -12px 0 0 var(--panel), 8px 0 10px -8px rgba(0,0,0,.7); }   /* zakryje odscrollované buňky vlevo */
+  table.mx th.akt { color: var(--accent); }
+  table.mx td { padding: 10px 10px; text-align: right; border-radius: 7px; font-size: 15px; white-space: nowrap; }
+  table.mx td.h { color: var(--ink); font-weight: 600; }
+  table.mx td.prazdne { background: transparent; }
+  table.mx td.oz { font-weight: 700; padding-right: 18px; }
+  table.mx td.cel { font-weight: 800; color: var(--text); background: var(--panel-2); }
+  table.mx td.akt { background: #1A2438; color: var(--muted); border: 1px dashed var(--line-2); }
+  table.mx th small { font-size: 10px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  table.mx tr.tym td { background: var(--panel-2); font-weight: 800; color: var(--text); border-top: 1px solid var(--line-2); }
+  table.mx td.alarm { background: var(--alarm) !important; color: #FFFFFF; font-weight: 800; box-shadow: inset 0 0 0 2px #FFB4B6; }
+  .leg { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; color: var(--muted); font-size: 13px; margin-top: 12px; }
+  .leg .grad { width: 160px; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #F8696B, #FFEB84, #63BE7B); }
+  .leg .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--alarm); vertical-align: -2px; margin-right: 6px; box-shadow: inset 0 0 0 2px #FFB4B6; }
+
+  .sekce-m { margin: 28px 0 10px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .sekce-m:first-child { margin-top: 4px; }
+  .sekce-m h2 { margin: 0; font-size: 18px; font-weight: 800; }
+  .sekce-m span { color: var(--muted); font-size: 14px; }
+  .login { max-width: 380px; margin: 12vh auto 0; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 26px; }
+  .login h2 { margin: 0 0 6px; font-size: 20px; }
+  .login p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  .login input { width: 100%; padding: 12px 14px; font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); border-radius: 10px; }
+  .login button { width: 100%; margin-top: 12px; padding: 12px; border: 0; border-radius: 10px; background: var(--accent-2); color: #FFFFFF; font-weight: 700; font-size: 16px; cursor: pointer; }
+  .login .err { color: #FCA5A5; font-size: 14px; margin-top: 10px; min-height: 20px; }
+  .odhlasit { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; }
+  .msg { padding: 40px; text-align: center; color: var(--muted); }
+  .msg.chyba { color: #FCA5A5; }
+
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 16px; max-width: 560px; padding: 22px 24px; }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h2 { margin: 0 0 12px; font-size: 18px; }
+  dialog .vahy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 14px; }
+  dialog .vahy div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; color: var(--muted); font-size: 13px; }
+  dialog .vahy b { display: block; color: var(--text); font-size: 22px; }
+  dialog p { color: #C9D3E3; margin: 8px 0; line-height: 1.55; font-size: 14px; }
+  dialog .x { float: right; border: 0; background: none; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; }
+
+  @media (max-width: 900px) {
+    .rhead { display: none; }
+    .rrow { grid-template-columns: 34px 1fr 76px; padding: 12px 14px; gap: 10px; }
+    .rrow .slozka, .rrow .ostatni { grid-column: 2 / 4; }
+    .slozka .v { justify-content: flex-start; }
+    .slozka .v em.lbl { display: inline-block; }
+    .slozka .v span { margin-left: auto; }
+    .skore { width: 64px; height: 46px; font-size: 22px; }
+    .info { margin-left: 0; }
+    .top-in { gap: 10px; padding: 10px 14px; }
+    .brand h1 { font-size: 17px; }
+    main { padding: 16px 12px 48px; }
+    .seg button { padding: 9px 12px; font-size: 14px; }
+    table.mx td { padding: 8px 8px; font-size: 14px; }
+  }
 </style>
 </head>
 <body>
-<div class="lista">
-  <h1>VÝKON OBCHODNÍKŮ</h1><span class="stav" id="stav">načítám…</span>
-  <button type="button" id="info">ℹ Jak se počítá skóre</button>
-</div>
-<main id="obsah"><div class="nacitam">Načítám data…</div></main>
-<dialog id="okno"><button class="zavrit" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
+<header class="top"><div class="top-in">
+  <div class="brand"><h1>Výkon obchodníků</h1><div class="stav" id="stav">načítám data…</div></div>
+  <nav class="tabs" aria-label="Záložky">
+    <button type="button" data-tab="skore" aria-pressed="true">Skóre</button>
+    <button type="button" data-tab="mesice" aria-pressed="false">Měsíční data</button>
+  </nav>
+  <button type="button" class="info" id="info">ⓘ Jak se počítá skóre</button>
+  <button type="button" class="odhlasit" id="odhlasit" hidden>Odhlásit</button>
+</div></header>
+<main id="obsah"><div class="msg">Načítám data…</div></main>
+<dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>
