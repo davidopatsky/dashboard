@@ -56,7 +56,7 @@
   table.g td.r0, table.g th.r0 { left: 0; width: 34px; min-width: 34px; }
   table.g td.r1, table.g th.r1 { left: 34px; width: 100px; min-width: 100px; max-width: 100px; }
   table.g td.r2, table.g th.r2 { left: 134px; box-shadow: 8px 0 10px -8px rgba(0,0,0,.7); }
-  table.g td.h { color: var(--ink); font-weight: 600; }
+  table.g td.h { font-weight: 600; }
   table.g td.oz { font-weight: 700; color: var(--text); }
   table.g td.oz small { display: block; color: var(--dim); font-weight: 500; font-size: 11.5px; }
   table.g td.dim { color: var(--dim); }
@@ -64,7 +64,7 @@
 
   /* skóre */
   .poradi { color: var(--dim); font-weight: 800; }
-  .chip { display: inline-block; min-width: 40px; padding: 3px 7px; border-radius: 6px; color: var(--ink); font-weight: 800; text-align: center; font-size: 15px; }
+  .chip { display: inline-block; min-width: 40px; padding: 3px 7px; border-radius: 6px; font-weight: 800; text-align: center; font-size: 15px; }
   .chip.s { min-width: 32px; padding: 1px 6px; font-size: 12.5px; font-weight: 700; }
   .pct { display: flex; align-items: center; gap: 7px; justify-content: flex-end; }
   .pct .tr { width: 36px; height: 6px; border-radius: 3px; background: #1E2A42; overflow: hidden; }
@@ -85,7 +85,7 @@
   table.mx th small { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: 0; text-transform: none; }
   table.mx td.cel { font-weight: 800; background: var(--panel-2); }
   table.mx tr.tym td { background: var(--head); font-weight: 800; box-shadow: inset 0 2px 0 var(--line-2); }
-  table.mx td.alarm { background: var(--alarm) !important; color: #FFFFFF; font-weight: 800; }
+  table.mx td.alarm { background: rgba(229,72,77,.42) !important; color: #FFFFFF !important; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(255,140,143,.7) !important; }
 
   .login { max-width: 360px; margin: 12vh auto 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
   .login h2 { margin: 0 0 6px; font-size: 19px; }
@@ -128,6 +128,6 @@
 <main id="obsah"><div class="msg">Načítám data…</div></main>
 <dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=10"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
+<script src="app.js?v=14"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
 </body>
 </html>
