@@ -61,7 +61,8 @@
       c.start[d] = txt(r, 'od') || (year + '-01');
       c.win[d] = {};
       [['c', 'cela'], ['q', '3m'], ['m', '30d']].forEach(function (w) {
-        c.win[d][w[0]] = { dni: num(r, w[1] + '_dni') || 1, o: num(r, w[1] + '_obrat'), z: num(r, w[1] + '_zisk'), s: num(r, w[1] + '_schuzky') };
+        c.win[d][w[0]] = { dni: num(r, w[1] + '_dni') || 1, o: num(r, w[1] + '_obrat'), z: num(r, w[1] + '_zisk'), s: num(r, w[1] + '_schuzky'),
+                           n: num(r, w[1] + '_nabidky'), w: num(r, w[1] + '_vyhry') };
       });
       c.obYM[d] = {}; c.ziYM[d] = {}; c.scYM[d] = {}; c.nabYM[d] = {};
       var p = prevById[num(r, 'raynet_id')];
@@ -89,44 +90,60 @@
     var p = OBDOBI.filter(function (o) { return o.id === obdobiId; })[0] || OBDOBI[0];
     var R = c[p.r];
     function mes(d, key) { var x = c.win[d][p.k]; return x[key] / x.dni * 30; }
-    var slozky = [{ key: 'o', nazev: 'Obrat', w: c.W.obrat, fmt: vedMil }, { key: 'z', nazev: 'Zisk', w: c.W.zisk, fmt: vedMil },
-                  { key: 's', nazev: 'Schůzky', w: c.W.schuzky, fmt: function (v) { return String(Math.round(v)); } }];
+    var slozky = [{ key: 'o', nazev: 'Obrat', kde: 'obratu', w: c.W.obrat, fmt: vedMil }, { key: 'z', nazev: 'Zisk', kde: 'zisku', w: c.W.zisk, fmt: vedMil },
+                  { key: 's', nazev: 'Schůzky', kde: 'schůzkách', w: c.W.schuzky, fmt: function (v) { return String(Math.round(v)); } }];
     var hi = {};
     slozky.forEach(function (s) { hi[s.key] = Math.max.apply(null, c.rowsOZ.map(function (r) { return mes(r[0], s.key); }).concat([0])); });
     var poradi = c.rowsOZ.slice().sort(function (a, b) { return (R[b[0]] - R[a[0]]) || (c.ratC[b[0]] - c.ratC[a[0]]); });
     var ostatni = OBDOBI.filter(function (o) { return o.id !== p.id; });
+    var jed = p.id === '30d' ? 'za 30 dní' : 'Ø/měs';
+    var des1 = function (v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ','); };
 
     var h = ['<div class="bar"><div class="seg" role="group" aria-label="Období">' +
       OBDOBI.map(function (o) { return '<button type="button" data-obdobi="' + o.id + '" aria-pressed="' + (o.id === p.id) + '">' + o.nazev + '</button>'; }).join('') +
       '</div><span class="pozn">' + esc(p.popis(c)) + '</span></div>'];
-    h.push('<div class="rank"><div class="rhead"><span>#</span><span>Obchodník</span><span>Skóre</span>' +
-      slozky.map(function (s) { return '<span>' + s.nazev + ' · ' + p.h + ' <span style="opacity:.7">(' + s.w + ' %)</span></span>'; }).join('') +
-      '<span>Ostatní období</span></div>');
+    h.push('<div class="tw"><table class="g"><thead>' +
+      '<tr class="grp"><th class="st" colspan="3"></th>' +
+      slozky.map(function (s) { return '<th class="sep" colspan="3">' + s.nazev + ' <span class="w">· váha ' + s.w + ' %</span></th>'; }).join('') +
+      '<th class="sep" colspan="4">Podklady · ' + jed + '</th><th class="sep">Proč</th><th class="sep" colspan="' + ostatni.length + '">Skóre jinde</th></tr>' +
+      '<tr><th class="c st r0">#</th><th class="l st r1">Obchodník</th><th class="c st r2">Skóre</th>' +
+      slozky.map(function () { return '<th class="sep">' + jed + '</th><th>vs. nejlepší</th><th>body</th>'; }).join('') +
+      '<th class="sep" title="Počet výher">Výhry</th><th title="Obrat ÷ počet výher">Ø zakázka</th><th title="Zisk ÷ obrat">Marže</th><th title="Vytvořené nabídky">Nabídky</th>' +
+      '<th class="sep l" title="▼ kde ztrácí nejvíc bodů · ▲ v čem je nejlepší v týmu">▼ ztrácí · ▲ vede</th>' +
+      ostatni.map(function (o, i) { return '<th class="c' + (i ? '' : ' sep') + '">' + o.nazev + '</th>'; }).join('') +
+      '</tr></thead><tbody>');
     poradi.forEach(function (r, i) {
-      var d = r[0], st = c.start[d];
-      var row = '<div class="rrow"><span class="poradi">' + (i + 1) + '</span>' +
-        '<div class="jmeno">' + esc(d) + '<small>v týmu od ' + MONTH_LABELS[parseInt(st.substring(5, 7), 10) - 1] + ' ' + st.substring(0, 4) + '</small></div>' +
-        '<div class="skore" style="background:' + heatColorRich(R[d] / 100) + '" title="Skóre ' + R[d] + ' / 100">' + R[d] + '</div>';
+      var d = r[0], st = c.start[d], x = c.win[d][p.k];
+      var row = '<tr><td class="c st r0 poradi">' + (i + 1) + '</td>' +
+        '<td class="l st r1 oz">' + esc(d) + '<small>od ' + MONTH_LABELS[parseInt(st.substring(5, 7), 10) - 1] + ' ' + st.substring(0, 4) + '</small></td>' +
+        '<td class="c st r2"><span class="chip" style="background:' + heatColorRich(R[d] / 100) + '">' + R[d] + '</span></td>';
+      var ztraty = [], vede = [];
       slozky.forEach(function (s) {
         var v = mes(d, s.key), podil = hi[s.key] > 0 ? v / hi[s.key] : 0, body = Math.round(podil * s.w);
         var barva = s.key === 's' ? heatColor(podil) : heat3Rel(v, hi[s.key]);
-        row += '<div class="slozka"><div class="v"><em class="lbl">' + s.nazev + '</em><b>' + esc(s.fmt(v)) + '</b><span>' + Math.round(podil * 100) + ' % nejlepšího · ' + body + ' b.</span></div>' +
-               '<div class="track" title="' + Math.round(podil * 100) + ' % nejlepšího v týmu"><i style="width:' + Math.max(2, podil * 100) + '%;background:' + barva + '"></i></div></div>';
+        row += '<td class="sep"><b>' + esc(s.fmt(v)) + '</b></td>' +
+               '<td><div class="pct"><span class="tr"><i style="width:' + Math.max(3, podil * 100) + '%;background:' + barva + '"></i></span>' + Math.round(podil * 100) + ' %</div></td>' +
+               '<td class="body"><b>' + body + '</b>/' + s.w + '</td>';
+        if (podil >= 0.995) vede.push(s.nazev.toLowerCase()); else ztraty.push({ s: s, b: s.w - body });
       });
-      row += '<div class="ostatni">' + ostatni.map(function (o) {
-        return '<div><span>' + o.nazev + '</span><b style="background:' + heatColorRich(c[o.r][d] / 100) + '">' + c[o.r][d] + '</b></div>';
-      }).join('') + '</div></div>';
-      h.push(row);
+      var vyhry = x.w, prumer = vyhry > 0 ? x.o / vyhry : 0, marze = x.o > 0 ? Math.round(x.z / x.o * 100) + ' %' : '–';
+      row += '<td class="sep">' + des1(mes(d, 'w')) + '</td><td>' + (prumer ? vedMil(prumer) : '–') + '</td><td>' + marze + '</td><td>' + des1(mes(d, 'n')) + '</td>';
+      ztraty.sort(function (a, b) { return b.b - a.b; });
+      var proc = [];
+      if (ztraty.length && ztraty[0].b >= 1) proc.push('<span class="z" title="Nejvíc bodů ztrácí na ' + ztraty[0].s.kde + '">▼ ' + ztraty[0].s.nazev.toLowerCase() + ' −' + ztraty[0].b + ' b.</span>');
+      if (vede.length) proc.push('<span class="p" title="Nejlepší v týmu">▲ nejlepší: ' + vede.join(', ') + '</span>');
+      row += '<td class="sep proc">' + (proc.join('<br>') || '<span class="muted">vyrovnaný</span>') + '</td>';
+      row += ostatni.map(function (o, k) { return '<td class="c' + (k ? '' : ' sep') + '"><span class="chip s" style="background:' + heatColorRich(c[o.r][d] / 100) + '">' + c[o.r][d] + '</span></td>'; }).join('');
+      h.push(row + '</tr>');
     });
-    h.push('</div><div class="legenda-skore">Skóre 0–100 = obrat ' + c.W.obrat + ' % + zisk ' + c.W.zisk + ' % + schůzky ' + c.W.schuzky +
-      ' %, každá složka vůči nejlepšímu v týmu. „b.“ = body, které složka do skóre přinesla. Barva: zelená = nejlepší, červená = nejslabší.</div>');
+    h.push('</tbody></table></div>');
     return h.join('');
   }
 
   // ─────────────────────────── MĚSÍČNÍ DATA ───────────────────────────
   var METRIKY = [
-    { id: 'obrat', nazev: 'Obrat', jednotka: 'M Kč', ym: 'obYM', fmt: function (v) { return (v / 1000000).toFixed(1).replace('.', ','); }, scale: 'rel', alarm: true },
-    { id: 'zisk', nazev: 'Zisk', jednotka: 'tis. Kč', ym: 'ziYM', fmt: function (v) { return tisM(v / 1000); }, scale: 'rel' },
+    { id: 'obrat', nazev: 'Obrat', jednotka: 'Kč bez DPH', ym: 'obYM', fmt: function (v) { return v ? vedMil(v) : '0'; }, scale: 'rel', alarm: true },
+    { id: 'zisk', nazev: 'Zisk', jednotka: 'Kč bez DPH', ym: 'ziYM', fmt: function (v) { return v ? vedMil(v) : '0'; }, scale: 'rel' },
     { id: 'marze', nazev: 'Marže', jednotka: '% (zisk ÷ obrat)', pct: true, fmt: function (v) { return Math.round(v) + ' %'; } },
     { id: 'schuzky', nazev: 'Schůzky', jednotka: 'realizované', ym: 'scYM', fmt: function (v) { return String(Math.round(v)); }, scale: 'count' },
     { id: 'nabidky', nazev: 'Nabídky', jednotka: 'vytvořené', ym: 'nabYM', fmt: function (v) { return String(Math.round(v)); }, scale: 'count' }
@@ -158,11 +175,11 @@
     }
 
     var h = ['<div class="sekce-m" id="m-' + mt.id + '"><h2>' + esc(mt.nazev) + '</h2><span>po měsících · ' + esc(mt.jednotka) + '</span></div>'];
-    h.push('<div class="karta"><table class="mx"><thead><tr><th>Obchodník</th>' + months.map(function (kk) {
+    h.push('<div class="tw"><table class="g mx"><thead><tr><th class="l st">Obchodník</th>' + months.map(function (kk) {
       var key = ymKey(kk);
       return '<th' + (kk === curYm ? ' class="akt" title="probíhající měsíc — zatím neúplný"' : '') + '>' +
              MONTH_LABELS[parseInt(key.substring(5, 7), 10) - 1] + ' ' + key.substring(2, 4) + (kk === curYm ? '<br><small>probíhá</small>' : '') + '</th>';
-    }).join('') + '<th>Celkem</th></tr></thead><tbody>');
+    }).join('') + '<th class="sep">Celkem</th></tr></thead><tbody>');
     var tymO = months.map(function () { return 0; }), tymZ = months.map(function () { return 0; }), tym = months.map(function () { return 0; });
     ord.forEach(function (r) {
       var d = r[0], s = 0, rO = 0, rZ = 0, alarm = {};
@@ -175,14 +192,14 @@
         }
         if (run.length >= ALERT_MIN_MONTHS) run.forEach(function (x) { alarm[x] = true; });
       }
-      var row = '<tr><td class="oz">' + esc(d) + '</td>';
+      var row = '<tr><td class="l st oz">' + esc(d) + '</td>';
       months.forEach(function (kk, i) {
-        if (kk < startIdx[d]) { row += '<td class="prazdne"></td>'; return; }
+        if (kk < startIdx[d]) { row += '<td class="dim"></td>'; return; }
         var key = ymKey(kk), v = val(d, key), akt = kk === curYm ? ' akt' : '';
         if (mt.pct) {
           var o = c.obYM[d][key] || 0, z = c.ziYM[d][key] || 0;
           rO += o; rZ += z; tymO[i] += o; tymZ[i] += z;
-          row += v === null ? '<td class="prazdne"></td>' : akt ? '<td class="akt">' + esc(mt.fmt(v)) + '</td>'
+          row += v === null ? '<td class="dim"></td>' : akt ? '<td class="akt">' + esc(mt.fmt(v)) + '</td>'
                                                                  : '<td class="h" style="background:' + barva(v) + '">' + esc(mt.fmt(v)) + '</td>';
           return;
         }
@@ -191,16 +208,13 @@
              : akt ? '<td class="akt" title="probíhající měsíc — zatím neúplný, nehodnotí se">' + esc(mt.fmt(v)) + '</td>'
                    : '<td class="h" style="background:' + barva(v) + '">' + esc(mt.fmt(v)) + '</td>';
       });
-      row += '<td class="cel">' + esc(mt.pct ? (rO > 0 ? mt.fmt(rZ / rO * 100) : '') : mt.fmt(s)) + '</td></tr>';
+      row += '<td class="cel sep">' + esc(mt.pct ? (rO > 0 ? mt.fmt(rZ / rO * 100) : '') : mt.fmt(s)) + '</td></tr>';
       h.push(row);
     });
     var tot = tym.reduce(function (a, b) { return a + b; }, 0), so = sum(tymO), sz = sum(tymZ);
-    h.push('<tr class="tym"><td>Tým</td>' + months.map(function (kk, i) {
+    h.push('<tr class="tym"><td class="l st">Tým</td>' + months.map(function (kk, i) {
       return '<td>' + esc(mt.pct ? (tymO[i] > 0 ? mt.fmt(tymZ[i] / tymO[i] * 100) : '') : mt.fmt(tym[i])) + '</td>';
-    }).join('') + '<td>' + esc(mt.pct ? (so > 0 ? mt.fmt(sz / so * 100) : '') : mt.fmt(tot)) + '</td></tr></tbody></table></div>');
-    h.push('<div class="leg"><span>nižší</span><span class="grad"></span><span>vyšší</span>' +
-      (mt.alarm ? '<span><span class="sw"></span>2 a více uzavřených měsíců po sobě pod ' + (c.hranice / 1000000).toFixed(1).replace('.', ',') + ' M</span>' : '') +
-      '<span>šedý sloupec „probíhá“ = aktuální měsíc, zatím neúplný (nehodnotí se barvou)</span></div>');
+    }).join('') + '<td class="sep">' + esc(mt.pct ? (so > 0 ? mt.fmt(sz / so * 100) : '') : mt.fmt(tot)) + '</td></tr></tbody></table></div>');
     return h.join('');
   }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
@@ -212,6 +226,9 @@
       '<p>Skóre 0–100 = vážený součet obratu, zisku a schůzek. Každá složka se porovná s nejlepším v týmu (nejlepší = plné body).</p>' +
       '<p><b>Celá doba</b> = od nástupu, <b>3 měsíce</b> = posledních 90 dní: průměr za měsíc (součet ÷ počet dní × 30), aby šli srovnat lidé s různě dlouhou dobou. <b>30 dní</b> = prostý součet.</p>' +
       '<p>Probíhající měsíc je neúplný, výhry se zapisují hlavně na konci měsíce. Zakázky bez částky nejsou započteny.</p>' +
+      '<p><b>Měsíční data:</b> barva = srovnání v rámci tabulky (zelená vyšší, červená nižší). Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' +
+      vedMil(c.hranice) + '. Šedý sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí.</p>' +
+      '<p><b>Podklady u skóre:</b> výhry = počet vyhraných zakázek, Ø zakázka = obrat ÷ výhry, marže = zisk ÷ obrat, nabídky = vytvořené nabídky.</p>' +
       '<p style="color:var(--muted)">Data: snímek ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '.</p>';
   }
 
@@ -227,7 +244,7 @@
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tab') === stav.tab)); });
     document.getElementById('obsah').innerHTML = stav.tab === 'mesice' ? renderMesice(C) : renderSkore(C, stav.obdobi);
     // úzká obrazovka: tabulky posunout na nejnovější měsíce
-    document.querySelectorAll('.karta').forEach(function (k) { k.scrollLeft = k.scrollWidth; });
+    document.querySelectorAll('table.mx').forEach(function (t) { var k = t.parentNode; k.scrollLeft = k.scrollWidth; });
     doHashe();
   }
   document.addEventListener('click', function (e) {
