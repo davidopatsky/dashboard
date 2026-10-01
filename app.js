@@ -446,6 +446,8 @@
       document.getElementById('stav').textContent = 'stav k ' + vedDen(C.todayStr) + ' ' + C.hhmm;
       document.getElementById('oknoObsah').innerHTML = info(C);
       document.getElementById('odhlasit').hidden = false;
+      var sh = document.getElementById('sheet');   // odkaz na zdrojový Sheet posílá skript jen po ověření hesla
+      if (/^https:\/\/docs\.google\.com\//.test(data.zdroj || '')) { sh.href = data.zdroj; sh.hidden = false; }
       vykresli();
     }).catch(function (err) {
       if (err.heslo) { ulozit(''); prihlaseni('Špatné heslo.'); return; }
@@ -453,7 +455,7 @@
     });
   }
   window.addEventListener('hashchange', function () { if (C) { zHashe(); vykresli(); } });
-  document.getElementById('odhlasit').addEventListener('click', function () { ulozit(''); C = null; prihlaseni(''); });
+  document.getElementById('odhlasit').addEventListener('click', function () { ulozit(''); C = null; document.getElementById('sheet').hidden = true; prihlaseni(''); });
   zHashe();
   start(ulozene());
 })();

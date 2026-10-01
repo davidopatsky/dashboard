@@ -30,6 +30,9 @@
   .tabs button { border: 0; background: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; color: var(--muted); cursor: pointer; }
   .tabs button[aria-pressed="true"] { background: var(--accent-2); color: #FFFFFF; }
   .info { margin-left: auto; border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-weight: 700; color: var(--accent); cursor: pointer; }
+  .sheet { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 7px 13px; font-weight: 700; color: var(--text); text-decoration: none; }
+  .sheet:hover { border-color: #1FA463; }
+  .sheet:not([hidden]) + .info { margin-left: 0; }
   .odhlasit { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; }
 
   main { max-width: 1560px; margin: 0 auto; padding: 18px 20px 56px; }
@@ -120,7 +123,8 @@
   @media (max-width: 760px) {
     .top-in { gap: 10px; padding: 10px 12px; }
     .brand h1 { font-size: 17px; }
-    .info { margin-left: 0; }
+    .info, .sheet { margin-left: 0; }
+    .sheet span { display: none; }
     main { padding: 14px 10px 44px; }
     table.g th, table.g td { padding: 6px 7px; }
     table.g td { font-size: 14px; }
@@ -135,12 +139,15 @@
     <button type="button" data-tab="skore" aria-pressed="true">Skóre</button>
     <button type="button" data-tab="mesice" aria-pressed="false">Měsíční data</button>
   </nav>
+  <a class="sheet" id="sheet" hidden target="_blank" rel="noopener" title="Zdrojová data — Google Sheet" aria-label="Zdrojová data (Google Sheet)">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2" fill="#1FA463"/><path d="M7.5 9h9v8h-9z" fill="#fff"/><path d="M7.5 11.6h9M7.5 14.3h9M11 9v8" stroke="#1FA463" stroke-width="1.2"/></svg>
+    <span>Zdrojová data</span></a>
   <button type="button" class="info" id="info">ⓘ Jak se počítá skóre</button>
   <button type="button" class="odhlasit" id="odhlasit" hidden>Odhlásit</button>
 </div></header>
 <main id="obsah"><div class="msg">Načítám data…</div></main>
 <dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=17"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
+<script src="app.js?v=18"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
 </body>
 </html>
