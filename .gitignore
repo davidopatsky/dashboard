@@ -1,3 +1,4 @@
 # data se do repozitáře nikdy nedávají — stránka je tahá živě ze Sheetu
 *.json
+!version.json
 .DS_Store

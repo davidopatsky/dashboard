@@ -9,142 +9,7 @@
 <title>Výkon obchodníků</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap&subset=latin-ext" rel="stylesheet">
-<style>
-  /* Tmavý vzhled se sytými barvami jako v Sheetu. Vyladěno pro oči: méně černé pozadí (menší oslnění od barevných
-     políček), světlejší popisky a čísla, viditelná mřížka, větší písmo. Na barevných políčkách tmavé tučné číslo. */
-  :root {
-    --bg: #0F1729; --panel: #152036; --panel-2: #1A2741; --head: #1E2C49; --line: #2C3D5F; --line-2: #3F5480;
-    --text: #F3F6FB; --muted: #C3CDDC; --dim: #8D9BB3; --accent: #8EC1FF; --accent-2: #3B82F6;
-    --ink: #0A1020; --alarm: #C0392B; --prazdne: #111A2D;
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }   /* i u prvků s vlastním display (odkaz na Sheet, navigace) */
-  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, "Segoe UI", Arial, sans-serif; font-size: 15px; line-height: 1.4; }
-  button { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  .top { position: sticky; top: 0; z-index: 20; background: rgba(15,23,41,.96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
-  .top-in { max-width: 1560px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-  .brand h1 { margin: 0; font-size: 20px; font-weight: 700; }
-  .brand .stav { color: var(--muted); font-size: 13px; margin-top: 2px; }
-  .tabs { display: flex; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; }
-  .tabs button { border: 0; background: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; color: var(--muted); cursor: pointer; }
-  .tabs button[aria-pressed="true"] { background: var(--accent-2); color: #FFFFFF; }
-  .info { margin-left: auto; border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 8px 14px; font-weight: 700; color: var(--accent); cursor: pointer; }
-  .sheet { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line-2); background: var(--panel); border-radius: 999px; padding: 7px 13px; font-weight: 700; color: var(--text); text-decoration: none; }
-  .sheet:hover { border-color: #1FA463; }
-  .sheet:not([hidden]) + .info { margin-left: 0; }
-  .odhlasit { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; }
-
-  main { max-width: 1560px; margin: 0 auto; padding: 18px 20px 56px; }
-  /* společný tabulkový styl */
-  .tw { background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; overflow-x: auto; }
-  table.g { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }   /* separate: okraje se ukotví s buňkou */
-  table.g th, table.g td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 7px 9px; white-space: nowrap; }
-  table.g th:last-child, table.g td:last-child { border-right: 0; }
-  table.g tbody tr:last-child td { border-bottom: 0; }
-  table.g thead th { background: var(--head); color: var(--muted); font-size: 12.5px; font-weight: 700; text-align: right; border-bottom: 1px solid var(--line-2); }
-  table.g thead tr.grp th { text-align: center; color: var(--text); font-size: 13px; }
-  table.g thead tr.grp th .w { color: var(--muted); font-weight: 500; }
-  table.g td { text-align: right; font-size: 14.5px; font-weight: 500; }
-  table.g td.l, table.g th.l { text-align: left; }
-  table.g td.c, table.g th.c { text-align: center; }
-  table.g tbody tr:hover td.st { background: var(--panel-2); }
-  table.g .sep { border-left: 2px solid var(--line-2); }
-  table.g td.st, table.g th.st { position: sticky; left: 0; z-index: 2; background: var(--panel); }
-  table.g thead th.st { background: var(--head); }
-  /* pořadí, jméno a skóre zůstávají vlevo při posunu (selektory s td/th kvůli přednosti před .st) */
-  table.g td.r0, table.g th.r0 { left: 0; width: 36px; min-width: 36px; }
-  table.g td.r1, table.g th.r1 { left: 36px; width: 112px; min-width: 112px; max-width: 112px; }
-  table.g td.r2, table.g th.r2 { left: 148px; box-shadow: 8px 0 10px -8px rgba(0,0,0,.7); }
-  table.g td.h { color: var(--ink); font-weight: 700; }
-  table.g td.oz { font-weight: 700; color: var(--text); }
-  table.g td.oz small { display: block; color: var(--dim); font-weight: 500; font-size: 12px; }
-  table.g td.dim { background: var(--prazdne); }
-  table.g td.muted { color: var(--muted); }
-
-  /* skóre — tři tabulky vedle sebe jako v Sheetu */
-  .napoveda { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
-  .skore3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
-  table.skt thead tr.grp th { color: #FFFFFF; font-size: 14px; text-align: left; padding: 9px 10px; border-bottom: 0; }
-  table.skt thead tr.grp th .w { color: rgba(255,255,255,.82); font-weight: 500; font-size: 12.5px; }
-  table.skt thead tr.grp th.p1 { background: #1F4E78; }
-  table.skt thead tr.grp th.p2 { background: #2A659E; }
-  table.skt thead tr.grp th.p3 { background: #3573B0; }
-  table.skt td.sk { font-size: 18px; font-weight: 900; }
-  table.skt td.od { color: var(--muted); }
-  @media (max-width: 1180px) { .skore3 { grid-template-columns: 1fr; } }
-
-  /* vysvětlivky u čísel */
-  [data-tip] { cursor: help; }
-  table.g td[data-tip]:hover, table.g th[data-tip]:hover { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75); }
-  .sekce-m h2[data-tip] { text-decoration: underline dotted var(--dim); text-underline-offset: 4px; }
-  #tip { position: fixed; z-index: 60; max-width: 400px; background: #0A1120; color: var(--text); border: 1px solid var(--line-2);
-         border-radius: 8px; padding: 10px 13px; font-size: 13.5px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,.55); pointer-events: none; }
-  #tip.pripnuto { pointer-events: auto; border-color: var(--accent); }
-  #tip b { display: block; margin-bottom: 4px; font-size: 14px; color: #FFFFFF; }
-  #tip div { color: #DCE3EE; }
-
-  /* rychlá navigace v Měsíčních datech */
-  .subnav { max-width: 1560px; margin: 0 auto; padding: 0 20px 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
-  .subnav button { flex: none; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .subnav button:hover { color: var(--text); border-color: var(--accent); }
-  .stare { margin-left: 6px; color: #FFD27A; font-weight: 700; }
-
-  /* měsíční data */
-  .sekce-m { margin: 26px 0 8px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-  .sekce-m:first-child { margin-top: 2px; }
-  .sekce-m h2 { margin: 0; font-size: 18px; font-weight: 700; }
-  .sekce-m span { color: var(--muted); font-size: 14px; }
-  .skupina.prvni { margin-top: 0; border-top: 0; padding-top: 0; }
-  .skupina { margin: 40px 0 0; padding-top: 14px; border-top: 2px solid var(--line-2); font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
-  table.mx th.mes, table.mx td { min-width: 78px; }
-  table.mx th.akt { color: var(--accent); }
-  table.mx th.bud { color: var(--dim); }
-  table.mx th small { display: block; font-size: 11px; font-weight: 500; }
-  table.mx td.akt { background: var(--panel-2); color: var(--text); }
-  table.mx td.bud { background: var(--prazdne); }
-  table.mx td.cel { font-weight: 700; background: var(--panel-2); }
-  table.mx tr.tym td { background: var(--head); font-weight: 700; border-top: 2px solid var(--line-2); }
-  table.mx tr.ost td { color: var(--muted); }
-  table.mx tr.ost td.oz { color: var(--muted); font-weight: 500; }
-  table.mx td.alarm { background: var(--alarm) !important; color: #FFFFFF !important; font-weight: 900; }
-  .nic { padding: 16px; color: var(--muted); background: var(--panel); border: 1px dashed var(--line-2); border-radius: 8px; }
-  .nic.varovani { color: #FFE2A8; border: 1px solid #B7791F; background: #2A2213; }
-
-  .login { max-width: 360px; margin: 12vh auto 0; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px; }
-  .login h2 { margin: 0 0 6px; font-size: 20px; }
-  .login p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
-  .login input { width: 100%; padding: 11px 13px; font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); border-radius: 8px; }
-  .login button { width: 100%; margin-top: 12px; padding: 11px; border: 0; border-radius: 8px; background: var(--accent-2); color: #FFFFFF; font-weight: 700; font-size: 15px; cursor: pointer; }
-  .login .err { color: #FFB4B4; font-size: 14px; margin-top: 10px; min-height: 20px; }
-  .msg { padding: 40px; text-align: center; color: var(--muted); }
-  .msg.chyba { color: #FFB4B4; }
-
-  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 14px; max-width: 620px; padding: 22px 24px; }
-  dialog::backdrop { background: rgba(0,0,0,.6); }
-  dialog h2 { margin: 0 0 12px; font-size: 19px; }
-  dialog h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); }
-  dialog .tip-hint { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
-  dialog .vahy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 14px; }
-  dialog .vahy div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; color: var(--muted); font-size: 14px; }
-  dialog .vahy b { display: block; color: var(--text); font-size: 22px; }
-  dialog p { color: #DCE3EE; margin: 8px 0; line-height: 1.55; font-size: 15px; }
-  dialog .x { float: right; border: 0; background: none; font-size: 24px; color: var(--muted); cursor: pointer; line-height: 1; }
-
-  @media (max-width: 760px) {
-    .top-in { gap: 10px; padding: 10px 12px; }
-    .brand h1 { font-size: 17px; }
-    .info, .sheet { margin-left: 0; }
-    .dlouhy { display: none; }
-    .subnav { padding: 0 12px 8px; }
-    .sheet span { display: none; }
-    main { padding: 14px 10px 44px; }
-    table.g th, table.g td { padding: 6px 7px; }
-    table.g td { font-size: 14px; }
-    table.mx th.mes, table.mx td { min-width: 66px; }
-  }
-</style>
+<style>html, body { margin: 0; background: #0F1729; color: #F3F6FB; font-family: Roboto, Arial, sans-serif; } body { visibility: hidden; }</style>
 </head>
 <body>
 <header class="top"><div class="top-in">
@@ -164,7 +29,26 @@
 <main id="obsah"><div class="msg">Načítám data…</div></main>
 <div id="tip" role="tooltip" hidden></div>
 <dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
-<script src="config.js?v=4"></script>
-<script src="app.js?v=22"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
+<script>
+// Vždy nejnovější verze: číslo verze se čte z version.json mimo mezipaměť a styly i skripty se načtou s ?v=<verze>.
+// Tenhle soubor (index.html) se proto mění jen výjimečně; při každé změně app.js / app.css se zvýší verze ve version.json.
+(function () {
+  function nacti(v) {
+    window.DASH_VERZE = v;
+    var css = document.createElement('link');
+    css.rel = 'stylesheet'; css.href = 'app.css?v=' + encodeURIComponent(v);
+    css.onload = css.onerror = function () { document.body.style.visibility = 'visible'; };
+    document.head.appendChild(css);
+    ['config.js', 'app.js'].reduce(function (p, src) {
+      return p.then(function () { return new Promise(function (ok, chyba) {
+        var s = document.createElement('script'); s.src = src + '?v=' + encodeURIComponent(v); s.onload = ok; s.onerror = chyba;
+        document.body.appendChild(s);
+      }); });
+    }, Promise.resolve());
+  }
+  fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); })
+    .then(function (j) { nacti(String(j.verze)); }, function () { nacti(String(Date.now())); });
+})();
+</script>
 </body>
 </html>

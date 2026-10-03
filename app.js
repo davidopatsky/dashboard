@@ -8,6 +8,8 @@
 //   snímek (obnova nedoběhla), konverze se nezobrazí — místo zkreslených čísel je výzva k obnově.
 // Každé číslo má vysvětlivku (data-tip): najetí myší ji ukáže, klepnutí / kliknutí ji připne.
 // Přístup: heslo ověřuje skript v Sheetu (?co=vedeni&h=…, ?co=fakta&h=…); stránka heslo nezná, jen ho pošle.
+// Automaticky: každých 10 minut (a při návratu na záložku) zkontroluje novou verzi stránky (version.json → znovu
+// načíst) a nová data v Sheetu (→ překreslit na stejném místě), aby nikde nevisela stará verze ani stará čísla.
 (function () {
   'use strict';
 
@@ -538,6 +540,7 @@
   }
   function prihlaseni(zprava) {
     document.getElementById('stav').textContent = '';
+    document.getElementById('stav').removeAttribute('data-tip');
     document.getElementById('odhlasit').hidden = true;
     document.getElementById('subnav').hidden = true;
     document.getElementById('obsah').innerHTML = '<form class="login" id="login"><h2>Přihlášení</h2><p>Dashboard je chráněný heslem.</p>' +
@@ -552,27 +555,64 @@
       start(h);
     });
   }
+  function pouzijData(vys) {
+    var data = vys[0];
+    podpis = JSON.stringify(vys);
+    FAKTA = vys[1];
+    C = kontext(data);
+    document.getElementById('stav').innerHTML = stavText(C);
+    document.getElementById('oknoObsah').innerHTML = info(C);
+    document.getElementById('odhlasit').hidden = false;
+    var sh = document.getElementById('sheet');   // odkaz na zdrojový Sheet posílá skript jen po ověření hesla
+    if (/^https:\/\/docs\.google\.com\//.test(data.zdroj || '')) { sh.href = data.zdroj; sh.hidden = false; }
+    oznacKontrolu();
+    vykresli();
+  }
   function start(heslo) {
     if (!heslo) { prihlaseni(''); return; }
     document.getElementById('obsah').innerHTML = '<div class="msg">Načítám data…</div>';
     Promise.all([nacti(heslo), nactiFakta(heslo)]).then(function (vys) {
-      var data = vys[0];
       ulozit(heslo);
-      FAKTA = vys[1];
-      C = kontext(data);
-      document.getElementById('stav').innerHTML = stavText(C);
-      document.getElementById('oknoObsah').innerHTML = info(C);
-      document.getElementById('odhlasit').hidden = false;
-      var sh = document.getElementById('sheet');   // odkaz na zdrojový Sheet posílá skript jen po ověření hesla
-      if (/^https:\/\/docs\.google\.com\//.test(data.zdroj || '')) { sh.href = data.zdroj; sh.hidden = false; }
-      vykresli();
+      HESLO = heslo;
+      pouzijData(vys);
     }).catch(function (err) {
       if (err.heslo) { ulozit(''); prihlaseni('Špatné heslo.'); return; }
       document.getElementById('obsah').innerHTML = '<div class="msg chyba">Data se nepodařilo načíst (' + esc(err.message) + ').</div>';
     });
   }
+
+  // ── automatická obnova: nová verze stránky + čerstvá data ──
+  var VERZE = window.DASH_VERZE || '', HESLO = '', podpis = '', posledniKontrola = Date.now(), KONTROLA_MS = 10 * 60 * 1000;
+  function hhmm(d) { return d.getHours() + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function oznacKontrolu() {
+    posledniKontrola = Date.now();
+    document.getElementById('stav').setAttribute('data-tip', 'Čerstvost dat\nStránka sama kontroluje nová data a novou verzi každých 10 minut a při návratu na záložku.\n' +
+      'Poslední kontrola: ' + hhmm(new Date()) + '.');
+  }
+  function obnovData() {
+    Promise.all([nacti(HESLO), nactiFakta(HESLO)]).then(function (vys) {
+      if (JSON.stringify(vys) === podpis) { oznacKontrolu(); return; }   // nic nového → nepřekreslovat
+      var y = window.pageYOffset;
+      pouzijData(vys);
+      window.scrollTo(0, y);
+    }).catch(function (err) {
+      if (err.heslo) { ulozit(''); HESLO = ''; C = null; prihlaseni('Heslo se změnilo — přihlas se znovu.'); }
+    });
+  }
+  function kontrola() {
+    posledniKontrola = Date.now();
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (j && j.verze && String(j.verze) !== VERZE) { location.reload(); return; }   // na webu je novější verze
+        if (C && HESLO) obnovData();
+      }, function () { if (C && HESLO) obnovData(); });
+  }
+  setInterval(function () { if (document.visibilityState === 'visible') kontrola(); }, KONTROLA_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && Date.now() - posledniKontrola > 2 * 60 * 1000) kontrola();
+  });
   window.addEventListener('hashchange', function () { if (C) { zHashe(); vykresli(); } });
-  document.getElementById('odhlasit').addEventListener('click', function () { ulozit(''); C = null; document.getElementById('sheet').hidden = true; prihlaseni(''); });
+  document.getElementById('odhlasit').addEventListener('click', function () { ulozit(''); HESLO = ''; C = null; document.getElementById('sheet').hidden = true; prihlaseni(''); });
   zHashe();
   start(ulozene());
 })();
