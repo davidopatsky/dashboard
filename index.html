@@ -18,6 +18,7 @@
     --ink: #0A1020; --alarm: #C0392B; --prazdne: #111A2D;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }   /* i u prvků s vlastním display (odkaz na Sheet, navigace) */
   html, body { margin: 0; background: var(--bg); color: var(--text); font-family: Roboto, "Segoe UI", Arial, sans-serif; font-size: 15px; line-height: 1.4; }
   button { font: inherit; color: inherit; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -36,12 +37,6 @@
   .odhlasit { border: 0; background: none; color: var(--muted); font-size: 13px; cursor: pointer; text-decoration: underline; }
 
   main { max-width: 1560px; margin: 0 auto; padding: 18px 20px 56px; }
-  .bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
-  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; }
-  .seg button { border: 0; background: none; padding: 8px 18px; border-radius: 6px; font-weight: 700; color: var(--muted); cursor: pointer; }
-  .seg button[aria-pressed="true"] { background: var(--accent-2); color: #FFFFFF; }
-  .bar .pozn { color: var(--muted); font-size: 14px; }
-
   /* společný tabulkový styl */
   .tw { background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; overflow-x: auto; }
   table.g { border-collapse: separate; border-spacing: 0; width: 100%; font-variant-numeric: tabular-nums; }   /* separate: okraje se ukotví s buňkou */
@@ -68,24 +63,40 @@
   table.g td.dim { background: var(--prazdne); }
   table.g td.muted { color: var(--muted); }
 
-  /* skóre */
-  .poradi { color: var(--muted); font-weight: 700; }
-  .chip { display: inline-block; min-width: 44px; padding: 4px 8px; border-radius: 5px; font-weight: 900; text-align: center; font-size: 16px; color: var(--ink); }
-  .chip.s { min-width: 36px; padding: 2px 6px; font-size: 14px; font-weight: 700; }
-  .pct { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-  .pct .tr { width: 30px; height: 8px; border-radius: 2px; background: #26365A; overflow: hidden; }
-  .pct .tr i { display: block; height: 100%; }
-  .body { color: var(--muted); }
-  .body b { color: var(--text); }
-  .proc { text-align: left !important; font-size: 13.5px; line-height: 1.5; }
-  .proc .z { color: #FFB4B4; }
-  .proc .p { color: #9CF0B8; }
+  /* skóre — tři tabulky vedle sebe jako v Sheetu */
+  .napoveda { margin: 0 0 12px; color: var(--muted); font-size: 13.5px; }
+  .skore3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  table.skt thead tr.grp th { color: #FFFFFF; font-size: 14px; text-align: left; padding: 9px 10px; border-bottom: 0; }
+  table.skt thead tr.grp th .w { color: rgba(255,255,255,.82); font-weight: 500; font-size: 12.5px; }
+  table.skt thead tr.grp th.p1 { background: #1F4E78; }
+  table.skt thead tr.grp th.p2 { background: #2A659E; }
+  table.skt thead tr.grp th.p3 { background: #3573B0; }
+  table.skt td.sk { font-size: 18px; font-weight: 900; }
+  table.skt td.od { color: var(--muted); }
+  @media (max-width: 1180px) { .skore3 { grid-template-columns: 1fr; } }
+
+  /* vysvětlivky u čísel */
+  [data-tip] { cursor: help; }
+  table.g td[data-tip]:hover, table.g th[data-tip]:hover { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75); }
+  .sekce-m h2[data-tip] { text-decoration: underline dotted var(--dim); text-underline-offset: 4px; }
+  #tip { position: fixed; z-index: 60; max-width: 400px; background: #0A1120; color: var(--text); border: 1px solid var(--line-2);
+         border-radius: 8px; padding: 10px 13px; font-size: 13.5px; line-height: 1.5; box-shadow: 0 10px 30px rgba(0,0,0,.55); pointer-events: none; }
+  #tip.pripnuto { pointer-events: auto; border-color: var(--accent); }
+  #tip b { display: block; margin-bottom: 4px; font-size: 14px; color: #FFFFFF; }
+  #tip div { color: #DCE3EE; }
+
+  /* rychlá navigace v Měsíčních datech */
+  .subnav { max-width: 1560px; margin: 0 auto; padding: 0 20px 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+  .subnav button { flex: none; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .subnav button:hover { color: var(--text); border-color: var(--accent); }
+  .stare { margin-left: 6px; color: #FFD27A; font-weight: 700; }
 
   /* měsíční data */
   .sekce-m { margin: 26px 0 8px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .sekce-m:first-child { margin-top: 2px; }
   .sekce-m h2 { margin: 0; font-size: 18px; font-weight: 700; }
   .sekce-m span { color: var(--muted); font-size: 14px; }
+  .skupina.prvni { margin-top: 0; border-top: 0; padding-top: 0; }
   .skupina { margin: 40px 0 0; padding-top: 14px; border-top: 2px solid var(--line-2); font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
   table.mx th.mes, table.mx td { min-width: 78px; }
   table.mx th.akt { color: var(--accent); }
@@ -110,9 +121,11 @@
   .msg { padding: 40px; text-align: center; color: var(--muted); }
   .msg.chyba { color: #FFB4B4; }
 
-  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 14px; max-width: 580px; padding: 22px 24px; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line-2); border-radius: 14px; max-width: 620px; padding: 22px 24px; }
   dialog::backdrop { background: rgba(0,0,0,.6); }
   dialog h2 { margin: 0 0 12px; font-size: 19px; }
+  dialog h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); }
+  dialog .tip-hint { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
   dialog .vahy { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 6px 0 14px; }
   dialog .vahy div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; color: var(--muted); font-size: 14px; }
   dialog .vahy b { display: block; color: var(--text); font-size: 22px; }
@@ -123,6 +136,8 @@
     .top-in { gap: 10px; padding: 10px 12px; }
     .brand h1 { font-size: 17px; }
     .info, .sheet { margin-left: 0; }
+    .dlouhy { display: none; }
+    .subnav { padding: 0 12px 8px; }
     .sheet span { display: none; }
     main { padding: 14px 10px 44px; }
     table.g th, table.g td { padding: 6px 7px; }
@@ -141,12 +156,15 @@
   <a class="sheet" id="sheet" hidden target="_blank" rel="noopener" title="Zdrojová data — Google Sheet" aria-label="Zdrojová data (Google Sheet)">
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="2.5" width="16" height="19" rx="2" fill="#1FA463"/><path d="M7.5 9h9v8h-9z" fill="#fff"/><path d="M7.5 11.6h9M7.5 14.3h9M11 9v8" stroke="#1FA463" stroke-width="1.2"/></svg>
     <span>Zdrojová data</span></a>
-  <button type="button" class="info" id="info">ⓘ Jak se počítá skóre</button>
+  <button type="button" class="info" id="info" aria-label="Jak se počítá">ⓘ<span class="dlouhy"> Jak se počítá</span></button>
   <button type="button" class="odhlasit" id="odhlasit" hidden>Odhlásit</button>
-</div></header>
+</div>
+  <nav class="subnav" id="subnav" aria-label="Tabulky" hidden></nav>
+</header>
 <main id="obsah"><div class="msg">Načítám data…</div></main>
+<div id="tip" role="tooltip" hidden></div>
 <dialog id="okno"><button class="x" type="button" id="zavrit" aria-label="Zavřít">×</button><div id="oknoObsah"></div></dialog>
 <script src="config.js?v=4"></script>
-<script src="app.js?v=19"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
+<script src="app.js?v=22"></script>   <!-- ?v= při každé změně zvýšit, ať prohlížeč nepoužije starou verzi -->
 </body>
 </html>
