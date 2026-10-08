@@ -74,6 +74,28 @@
   #tip b { display: block; margin-bottom: 4px; font-size: 14px; color: #FFFFFF; }
   #tip div { color: #DCE3EE; }
 
+  /* leady — filtr období, dlaždice, podíl */
+  .filtr { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; }
+  .seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+  .seg button { border: 0; background: none; padding: 7px 14px; border-radius: 6px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent-2); color: #FFFFFF; }
+  .vlastni { color: var(--muted); font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+  .vlastni input { font: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 5px 8px; color-scheme: dark; }
+  .filtr .pozn { color: var(--muted); font-size: 13.5px; }
+  .dlazdice-r { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 6px; }
+  .dlazdice { background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px; }
+  .dlazdice span { display: block; color: var(--muted); font-size: 13px; font-weight: 700; }
+  .dlazdice b { display: block; font-size: 30px; font-weight: 900; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .dlazdice small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  table.lt { width: auto; min-width: 100%; }
+  table.lt td.nula { color: var(--dim); text-align: center; }
+  table.lt tr.vikend td.oz { color: var(--muted); }
+  table.lt tr.vikend td:not(.h) { background: #121B2E; }
+  .podil { display: flex; align-items: center; gap: 8px; min-width: 150px; }
+  .podil i { display: block; height: 10px; border-radius: 2px; background: #5E98E0; }
+  .podil span { color: var(--muted); font-size: 13px; }
+  @media (max-width: 760px) { .dlazdice-r { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dlazdice b { font-size: 24px; } }
+
   /* rychlá navigace v Měsíčních datech */
   .subnav { max-width: 1560px; margin: 0 auto; padding: 0 20px 10px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
   .subnav button { flex: none; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }

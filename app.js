@@ -75,7 +75,8 @@
       rowsOZ: [], jmeno: {}, ratC: {}, ratQ: {}, ratM: {}, win: {}, obYM: {}, ziYM: {}, scYM: {}, nabYM: {}, start: {},
       W: { obrat: vahy[0] || VYCHOZI_VAHY.obrat, zisk: vahy[1] || VYCHOZI_VAHY.zisk, schuzky: vahy[2] || VYCHOZI_VAHY.schuzky },
       hranice: num(dnes[0], 'hranice_slaby_mesic') || VYCHOZI_HRANICE,
-      year: year, curMonthIdx: +den.substring(5, 7) - 1, todayStr: den, hhmm: txt(dnes[0], 'cas'), from30Str: ds(f30)
+      year: year, curMonthIdx: +den.substring(5, 7) - 1, todayStr: den, hhmm: txt(dnes[0], 'cas'), from30Str: ds(f30),
+      stazeno: { obchody: txt(dnes[0], 'stazeno_obchody'), aktivity: txt(dnes[0], 'stazeno_aktivity'), leady: txt(dnes[0], 'stazeno_leady') }
     };
     dnes.forEach(function (r) {
       var d = txt(r, 'oz');
@@ -286,15 +287,29 @@
   }
   function kdy(s) { return s ? parseInt(s.substring(8, 10), 10) + '. ' + parseInt(s.substring(5, 7), 10) + '. ' + s.substring(11, 16) : 'nikdy'; }
 
+  // Snímek výkonu i fakta se publikují jedním krokem na konci obnovy a nesou časy stažení. Když nesedí
+  // (publikace nedoběhla, starý formát), web čísla nemíchá — ukáže hlášku. Vrací null = vše z jedné obnovy.
+  function nesoulad(c, F) {
+    var obnov = ' V Sheetu klikni <b>' + esc(OBNOV) + '</b> (nebo počkej na noční obnovu).';
+    if (!F) return 'Tato část se zobrazí po první úplné obnově dat.' + obnov;
+    var st = F.stav || {};
+    if (c.stazeno.obchody) {
+      var casti = ['obchody', 'aktivity', 'leady'].filter(function (k) { return st[k] !== c.stazeno[k]; });
+      if (F.leadyDny && F.leadyDny.stazeno && F.leadyDny.stazeno !== st.leady) casti.push('leady po dnech');
+      if (!casti.length) return null;
+      return 'Data nejsou z jedné obnovy (' + casti.join(', ') + ' — snímek: obchody ' + esc(kdy(c.stazeno.obchody)) + ', leady ' + esc(kdy(c.stazeno.leady)) +
+             ' · fakta: obchody ' + esc(kdy(st.obchody)) + ', leady ' + esc(kdy(st.leady)) + '), čísla by byla zkreslená.' + obnov;
+    }
+    var den = function (k) { return String(st[k] || '').substring(0, 10); };
+    if (den('obchody') === c.todayStr && den('leady') === c.todayStr) return null;
+    return 'Data nejsou ze stejného stažení jako zbytek dashboardu (snímek ' + esc(vedDen(c.todayStr)) + ', obchody ' + esc(kdy(st.obchody)) +
+           ', leady ' + esc(kdy(st.leady)) + '), čísla by byla zkreslená.' + obnov;
+  }
+
   function renderLeady(c, F) {
     var h = ['<div class="skupina" id="m-leady-skupina">Leady a konverze · kanál A+B vs. OP od Sabiny</div>'];
-    var obnov = 'V Sheetu klikni <b>' + esc(OBNOV) + '</b> (nebo počkej na noční obnovu).';
-    if (!F) return h.join('') + '<div class="nic">Leady a konverze se zobrazí po první obnově dat. ' + obnov + '</div>';
-    var st = F.stav || {}, den = function (k) { return String(st[k] || '').substring(0, 10); };
-    if (den('obchody') !== c.todayStr || den('leady') !== c.todayStr) {
-      return h.join('') + '<div class="nic varovani">⚠ Leady a konverze nejsou ze stejného stažení jako zbytek dashboardu ' +
-        '(snímek ' + esc(vedDen(c.todayStr)) + ', obchody ' + esc(kdy(st.obchody)) + ', leady ' + esc(kdy(st.leady)) + '), konverze by byla zkreslená. ' + obnov + '</div>';
-    }
+    var ne = nesoulad(c, F);
+    if (ne) return h.join('') + '<div class="nic' + (F ? ' varovani' : '') + '">' + (F ? '⚠ ' : '') + ne + '</div>';
     var x = faktaIndex(F), curYm = c.year * 12 + c.curMonthIdx + 1, months = rokMesice(c);
     var ord = poradiOZ(c).map(function (r) { return r[0]; });
     var jeOZ = {}; ord.forEach(function (d) { jeOZ[d] = true; });
@@ -420,6 +435,145 @@
     return h.join('');
   }
 
+
+  // ─────────────────────────── LEADY — co přišlo a kolik kdo dostal, za zvolené období ───────────────────────────
+  // Zdroj: leady po dnech (den × zdroj × vlastník × validní → počet) publikované se zbytkem dat. Málo kategorií:
+  // 4 hlavní zdroje + Ostatní, obchodníci + Sabina + Ostatní (co je v „Ostatní", ukáže vysvětlivka).
+  var ZDROJE = [{ n: 'Webový formulář', z: ['webový formulář'] }, { n: 'Konfigurátor', z: ['konfigurator', 'konfigurátor'] },
+                { n: 'E-mail', z: ['poptávka email'] }, { n: 'Telefon', z: ['poptávka tel.'] }, { n: 'Ostatní', z: [] }];
+  var DNY_TYDNE = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
+  function kategorieZdroje(z) { for (var i = 0; i < ZDROJE.length - 1; i++) if (ZDROJE[i].z.indexOf(String(z).toLowerCase()) >= 0) return i; return ZDROJE.length - 1; }
+  function modra(t) { if (t < 0) t = 0; if (t > 1) t = 1; return mix([226, 237, 251], [94, 152, 224], t); }
+  function isoD(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function zIso(s) { return new Date(+s.substring(0, 4), +s.substring(5, 7) - 1, +s.substring(8, 10)); }
+  function plusDny(s, n) { var d = zIso(s); d.setDate(d.getDate() + n); return isoD(d); }
+  function denTxt(s) { return DNY_TYDNE[zIso(s).getDay()] + ' ' + parseInt(s.substring(8, 10), 10) + '. ' + parseInt(s.substring(5, 7), 10) + '.'; }
+  function rozdilDni(a, b) { return Math.round((zIso(b) - zIso(a)) / 86400000); }
+  var OBDOBI_L = [{ id: '7d', n: '7 dní' }, { id: '30d', n: '30 dní' }, { id: 'mes', n: 'Tento měsíc' }, { id: 'minmes', n: 'Minulý měsíc' }, { id: 'rok', n: 'Letos' }];
+  function rozsah(id, konec) {
+    if (id === '7d') return [plusDny(konec, -6), konec];
+    if (id === 'mes') return [konec.substring(0, 8) + '01', konec];
+    if (id === 'minmes') { var d = zIso(konec.substring(0, 8) + '01'); d.setDate(0); var k = isoD(d); return [k.substring(0, 8) + '01', k]; }
+    if (id === 'rok') return [konec.substring(0, 4) + '-01-01', konec];
+    var m = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(id || '');
+    if (m) return m[1] <= m[2] ? [m[1], m[2]] : [m[2], m[1]];
+    return [plusDny(konec, -29), konec];
+  }
+
+  function renderLeadyTab(c, F) {
+    var h = [];
+    var ne = nesoulad(c, F);
+    if (ne) return '<div class="nic' + (F ? ' varovani' : '') + '">' + (F ? '⚠ ' : '') + ne + '</div>';
+    if (!F.leadyDny || !F.leadyDny.radky.length) return '<div class="nic">Přehled leadů se zobrazí po aktualizaci nasazení skriptu v Sheetu (Nová verze) a další obnově dat.</div>';
+    var konec = F.leadyDny.stazeno.substring(0, 10), r = rozsah(stav.leadyObd, konec), od = r[0], do_ = r[1];
+    var dni = rozdilDni(od, do_) + 1;
+    var ozByFull = {}; c.rowsOZ.forEach(function (x) { ozByFull[x[1]] = x[0]; });
+    var komu = function (row) { return row[3] || ozByFull[row[2]] || (row[2] === SABINA ? 'Sabina' : null); };
+    // součty v období (a ve stejně dlouhém předchozím období kvůli srovnání)
+    var Z = ZDROJE.map(function () { return { n: 0, v: 0 }; }), O = {}, ost = {}, ostZ = {}, prubeh = {}, celkem = { n: 0, v: 0 }, pred = 0;
+    var predOd = plusDny(od, -dni), predDo = plusDny(od, -1), poMesicich = dni > 62;
+    F.leadyDny.radky.forEach(function (row) {
+      var den = row[0], n = row[5], val = row[4] ? n : 0;
+      if (den >= predOd && den <= predDo) pred += n;
+      if (den < od || den > do_) return;
+      var z = kategorieZdroje(row[1]), kdo = komu(row) || 'Ostatní';
+      if (z === ZDROJE.length - 1) ostZ[row[1]] = (ostZ[row[1]] || 0) + n;
+      if (kdo === 'Ostatní') ost[row[2]] = (ost[row[2]] || 0) + n;
+      celkem.n += n; celkem.v += val; Z[z].n += n; Z[z].v += val;
+      var o = O[kdo] = O[kdo] || { n: 0, v: 0, z: ZDROJE.map(function () { return 0; }) };
+      o.n += n; o.v += val; o.z[z] += n;
+      var klic = poMesicich ? den.substring(0, 7) : den;
+      var p = prubeh[klic] = prubeh[klic] || { n: 0, v: 0, z: ZDROJE.map(function () { return 0; }) };
+      p.n += n; p.v += val; p.z[z] += n;
+    });
+    var obdTxt = denTxt(od) + ' – ' + denTxt(do_) + ' ' + do_.substring(0, 4) + ' (' + dni + ' ' + (dni === 1 ? 'den' : dni < 5 ? 'dny' : 'dní') + ')';
+    var ostZTxt = Object.keys(ostZ).map(function (k) { return k + ': ' + ostZ[k]; }).join(', ');
+    var ostTxt = Object.keys(ost).sort(function (a, b) { return ost[b] - ost[a]; }).map(function (k) { return k + ': ' + ost[k]; }).join(', ');
+    var pctN = function (x) { return x.n > 0 ? Math.round((x.n - x.v) / x.n * 100) + ' %' : '–'; };
+
+    // filtr období
+    h.push('<div class="filtr"><div class="seg" role="group" aria-label="Období">' + OBDOBI_L.map(function (o) {
+      return '<button type="button" data-lobd="' + o.id + '" aria-pressed="' + (stav.leadyObd === o.id || (o.id === '30d' && !rozsahJeVolba(stav.leadyObd) && stav.leadyObd.indexOf('..') < 0)) + '">' + o.n + '</button>';
+    }).join('') + '</div><label class="vlastni">od <input type="date" id="lOd" value="' + od + '" min="' + RANGE_OD(c) + '" max="' + konec + '"></label>' +
+      '<label class="vlastni">do <input type="date" id="lDo" value="' + do_ + '" min="' + RANGE_OD(c) + '" max="' + konec + '"></label>' +
+      '<span class="pozn">' + esc(obdTxt) + ' · data k ' + esc(kdy(F.leadyDny.stazeno)) + '</span></div>');
+
+    // dlaždice
+    var zmena = pred > 0 ? Math.round((celkem.n - pred) / pred * 100) : null;
+    var dl = function (nazev, hodnota, pod, t) { return '<div class="dlazdice"' + t + '><span>' + nazev + '</span><b>' + hodnota + '</b>' + (pod ? '<small>' + pod + '</small>' : '') + '</div>'; };
+    h.push('<div class="dlazdice-r">' +
+      dl('Leady', tis(celkem.n), zmena === null ? '' : (zmena >= 0 ? '+' : '') + zmena + ' % proti předchozím ' + dni + ' dnům',
+         tip('Leady v období', 'Všechny leady firmy s datem leadu v období (bez ohledu na vlastníka): ' + celkem.n + '.',
+             'Předchozí stejně dlouhé období (' + denTxt(predOd) + ' – ' + denTxt(predDo) + '): ' + pred + '.')) +
+      dl('Validní', tis(celkem.v), '', tip('Validní leady', 'Fáze leadu ≠ Zrušený: ' + celkem.v + ' z ' + celkem.n + '.')) +
+      dl('Nevalidní', tis(celkem.n - celkem.v), pctN(celkem) + ' nevalidních', tip('Nevalidní leady', 'Fáze Zrušený: ' + (celkem.n - celkem.v) + ' z ' + celkem.n + ' = ' + pctN(celkem) + '.')) +
+      dl('Ø za den', des1(celkem.n / dni), '', tip('Průměr za den', celkem.n + ' leadů ÷ ' + dni + ' dní = ' + des1(celkem.n / dni) + '.')) + '</div>');
+
+    // co přišlo — podle zdroje
+    var maxZ = Math.max.apply(null, Z.map(function (x) { return x.n; }).concat([1]));
+    var hiP = Math.max.apply(null, Z.filter(function (x) { return x.n > 0; }).map(function (x) { return (x.n - x.v) / x.n; }).concat([0.01]));
+    h.push(sekce('l-zdroj', 'Co přišlo — podle zdroje', 'počet leadů v období', ['Leady podle pole Zdroj kontaktu v Raynetu, sloučené do 4 hlavních zdrojů + Ostatní.',
+      'Ostatní v období: ' + (ostZTxt || 'nic') + '.', 'Barva: modrá = víc leadů; % nevalidních zelená = málo, červená = hodně.']));
+    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">Zdroj</th><th>Leady</th><th>Validní</th><th>Nevalidní</th><th>% nevalidních</th><th class="l">Podíl</th></tr></thead><tbody>');
+    ZDROJE.forEach(function (zd, i) {
+      var x = Z[i]; if (!x.n && i === ZDROJE.length - 1) return;
+      var t0 = zd.n + ' · ' + obdTxt, p = x.n > 0 ? (x.n - x.v) / x.n : null, podil = celkem.n ? x.n / celkem.n : 0;
+      h.push('<tr><td class="l st oz"' + (i === ZDROJE.length - 1 ? tip('Ostatní zdroje', ostZTxt || 'nic') : tip(zd.n, 'Zdroj kontaktu v Raynetu: ' + zd.z.join(', ') + '.')) + '>' + esc(zd.n) + '</td>' +
+        '<td class="h" style="' + bg(modra(x.n / maxZ)) + '"' + tip(t0, 'Leady: ' + x.n) + '>' + x.n + '</td>' +
+        '<td' + tip(t0, 'Validní (fáze ≠ Zrušený): ' + x.v) + '>' + x.v + '</td>' +
+        '<td' + tip(t0, 'Nevalidní (fáze Zrušený): ' + (x.n - x.v)) + '>' + (x.n - x.v) + '</td>' +
+        (p === null ? '<td>–</td>' : '<td class="h" style="' + bg(heatColor(1 - p / hiP)) + '"' + tip(t0, 'Nevalidní ' + (x.n - x.v) + ' ÷ leady ' + x.n + ' = ' + pctN(x)) + '>' + pctN(x) + '</td>') +
+        '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + x.n + ' ÷ ' + celkem.n + ' = ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td></tr>');
+    });
+    h.push('<tr class="tym"><td class="l st">Celkem</td><td>' + celkem.n + '</td><td>' + celkem.v + '</td><td>' + (celkem.n - celkem.v) + '</td><td>' + pctN(celkem) + '</td><td class="l">100 %</td></tr></tbody></table></div>');
+
+    // kolik kdo dostal — podle vlastníka (× zdroj)
+    var kdo = Object.keys(O).filter(function (k) { return k !== 'Ostatní'; }).sort(function (a, b) { return O[b].n - O[a].n; });
+    if (O['Ostatní']) kdo.push('Ostatní');
+    var zUkaz = ZDROJE.map(function (zd, i) { return i; }).filter(function (i) { return Z[i].n > 0; });
+    var maxO = 1; kdo.forEach(function (k) { zUkaz.forEach(function (i) { maxO = Math.max(maxO, O[k].z[i]); }); });
+    var maxOn = Math.max.apply(null, kdo.map(function (k) { return O[k].n; }).concat([1]));
+    h.push(sekce('l-kdo', 'Kolik kdo dostal — podle vlastníka', 'komu byl lead přidělen (vlastník leadu v Raynetu)', ['Vlastník leadu v Raynetu = komu byl lead přidělen. Počítají se všechny leady s datem v období.',
+      'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: modrá = víc leadů.']));
+    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">Vlastník</th>' + zUkaz.map(function (i) { return '<th>' + esc(ZDROJE[i].n) + '</th>'; }).join('') +
+      '<th class="sep">Celkem</th><th>Validní</th><th>% nevalidních</th><th class="l">Podíl</th></tr></thead><tbody>');
+    kdo.forEach(function (k) {
+      var o = O[k], t0 = k + ' · ' + obdTxt, podil = celkem.n ? o.n / celkem.n : 0;
+      h.push('<tr' + (k === 'Ostatní' ? ' class="ost"' : '') + '><td class="l st oz"' + (k === 'Ostatní' ? tip('Ostatní vlastníci', ostTxt || 'nikdo') : '') + '>' + esc(k) + '</td>' +
+        zUkaz.map(function (i) { var v = o.z[i]; return v ? '<td class="h" style="' + bg(modra(v / maxO)) + '"' + tip(t0, ZDROJE[i].n + ': ' + v + ' leadů') + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('') +
+        '<td class="sep h" style="' + bg(modra(o.n / maxOn)) + '"' + tip(t0, 'Leady celkem: ' + o.n) + '>' + o.n + '</td>' +
+        '<td' + tip(t0, 'Validní: ' + o.v + ' z ' + o.n) + '>' + o.v + '</td><td' + tip(t0, 'Nevalidní ' + (o.n - o.v) + ' ÷ ' + o.n + ' = ' + pctN(o)) + '>' + pctN(o) + '</td>' +
+        '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td></tr>');
+    });
+    h.push('<tr class="tym"><td class="l st">Celkem</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') +
+      '<td class="sep">' + celkem.n + '</td><td>' + celkem.v + '</td><td>' + pctN(celkem) + '</td><td class="l">100 %</td></tr></tbody></table></div>');
+
+    // průběh — po dnech (nejnovější nahoře), u delšího období po měsících
+    var klice = [];
+    if (poMesicich) { for (var k2 = ymToIdx(od); k2 <= ymToIdx(do_); k2++) klice.push(ymKey(k2)); }
+    else { for (var d = do_; d >= od; d = plusDny(d, -1)) klice.push(d); }
+    if (poMesicich) klice.reverse();
+    var maxP = 1, maxPn = 1;
+    klice.forEach(function (k) { var p = prubeh[k]; if (!p) return; maxPn = Math.max(maxPn, p.n); zUkaz.forEach(function (i) { maxP = Math.max(maxP, p.z[i]); }); });
+    h.push(sekce('l-prubeh', 'Průběh — ' + (poMesicich ? 'po měsících' : 'po dnech'), poMesicich ? 'nejnovější nahoře' : 'nejnovější nahoře · víkendy šedě',
+      ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: modrá = víc leadů.']));
+    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">' + (poMesicich ? 'Měsíc' : 'Den') + '</th>' +
+      zUkaz.map(function (i) { return '<th>' + esc(ZDROJE[i].n) + '</th>'; }).join('') + '<th class="sep">Celkem</th><th>Validní</th></tr></thead><tbody>');
+    h.push('<tr class="tym"><td class="l st">Σ období</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') + '<td class="sep">' + celkem.n + '</td><td>' + celkem.v + '</td></tr>');
+    klice.forEach(function (k) {
+      var p = prubeh[k] || { n: 0, v: 0, z: ZDROJE.map(function () { return 0; }) };
+      var popisek = poMesicich ? MESIC[parseInt(k.substring(5, 7), 10) - 1] + ' ' + k.substring(0, 4) : denTxt(k) + (k === konec ? ' · do ' + F.leadyDny.stazeno.substring(11, 16) : '');
+      var vikend = !poMesicich && (zIso(k).getDay() === 0 || zIso(k).getDay() === 6);
+      h.push('<tr' + (vikend ? ' class="vikend"' : '') + '><td class="l st oz">' + esc(popisek) + '</td>' +
+        zUkaz.map(function (i) { var v = p.z[i]; return v ? '<td class="h" style="' + bg(modra(v / maxP)) + '"' + tip(popisek + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('') +
+        '<td class="sep h" style="' + bg(modra(p.n / maxPn)) + '"' + tip(popisek, 'Leady celkem: ' + p.n, 'Validní: ' + p.v) + '>' + p.n + '</td><td>' + p.v + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    return h.join('');
+  }
+  function rozsahJeVolba(id) { return OBDOBI_L.some(function (o) { return o.id === id; }); }
+  function RANGE_OD(c) { return c.year + '-01-01'; }
+
   // ─────────────────────────── OKNO ⓘ ───────────────────────────
   function info(c) {
     return '<h2>Jak se počítá</h2>' +
@@ -435,6 +589,9 @@
       '<h3>Leady a konverze</h3>' +
       '<p>Konverze A+B = vyhraná OP mimo kategorii S-zaměření (měsíc dle data výhry) ÷ validní leady obchodníka — celkové počty, bez ohledu na to, jestli je OP v Raynetu navázané na lead. ' +
       'U přidělených leadů a OP od Sabiny je zelená ten, kdo jich má méně. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
+      '<h3>Leady</h3>' +
+      '<p>Záložka Leady = všechny leady firmy podle data leadu, bez ohledu na vlastníka, za zvolené období. Validní = fáze ≠ Zrušený. ' +
+      'Zdroje jsou sloučené do 4 hlavních + Ostatní, vlastníci na obchodníky, Sabinu a Ostatní — co je v „Ostatní", ukáže vysvětlivka.</p>' +
       '<h3>Data</h3>' +
       '<p>Sheet obnovuje všechna data najednou — každou noc mezi 5. a 6. hodinou, nebo tlačítkem ' + esc(OBNOV) + '. ' +
       'Kdyby obnova nedoběhla a leady s obchody nebyly ze stejného stažení, konverze se nezobrazí.</p>' +
@@ -472,14 +629,18 @@
   window.addEventListener('resize', function () { if (tipCil) skryjTip(); });
 
   // ─────────────────────────── ŘÍZENÍ ───────────────────────────
-  var C = null, FAKTA = null, stav = { tab: 'skore' };
-  function zHashe() { stav.tab = location.hash.indexOf('mesice') >= 0 ? 'mesice' : 'skore'; }
-  function doHashe() { history.replaceState(null, '', '#' + stav.tab); }
+  var C = null, FAKTA = null, stav = { tab: 'skore', leadyObd: '30d' };
+  function zHashe() {
+    var p = location.hash.replace('#', '').split('/');
+    stav.tab = p[0] === 'mesice' || p[0] === 'leady' ? p[0] : 'skore';
+    if (p[0] === 'leady' && p[1]) stav.leadyObd = p[1];
+  }
+  function doHashe() { history.replaceState(null, '', '#' + stav.tab + (stav.tab === 'leady' ? '/' + stav.leadyObd : '')); }
   function vykresli() {
     skryjTip();
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tab') === stav.tab)); });
-    document.getElementById('obsah').innerHTML = stav.tab === 'mesice' ? renderMesice(C) : renderSkore(C);
-    // rychlá navigace po tabulkách měsíčních dat (v liště nahoře)
+    document.getElementById('obsah').innerHTML = stav.tab === 'mesice' ? renderMesice(C) : stav.tab === 'leady' ? renderLeadyTab(C, FAKTA) : renderSkore(C);
+    // rychlá navigace po tabulkách (v liště nahoře)
     var nav = document.getElementById('subnav');
     if (stav.tab === 'mesice') {
       nav.innerHTML = Array.prototype.map.call(document.querySelectorAll('.sekce-m[id], .skupina[id]'), function (s) {
@@ -498,10 +659,16 @@
   document.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || !C) return;
     if (b.dataset.tab) { stav.tab = b.dataset.tab; vykresli(); window.scrollTo(0, 0); }
+    else if (b.dataset.lobd) { stav.leadyObd = b.dataset.lobd; vykresli(); }
     else if (b.dataset.skok) {
       var cil = document.getElementById(b.dataset.skok), hl = document.querySelector('.top').offsetHeight;
       if (cil) window.scrollTo({ top: cil.getBoundingClientRect().top + window.pageYOffset - hl - 10, behavior: 'smooth' });
     }
+  });
+  document.addEventListener('change', function (e) {   // vlastní období leadů (od – do)
+    if (!C || (e.target.id !== 'lOd' && e.target.id !== 'lDo')) return;
+    var a = document.getElementById('lOd').value, b = document.getElementById('lDo').value;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(a) && /^\d{4}-\d{2}-\d{2}$/.test(b)) { stav.leadyObd = a + '..' + b; vykresli(); }
   });
   var okno = document.getElementById('okno');
   document.getElementById('zavrit').addEventListener('click', function () { okno.close(); });
@@ -512,9 +679,14 @@
   function stavText(c) {
     var t = new Date(+c.todayStr.substring(0, 4), +c.todayStr.substring(5, 7) - 1, +c.todayStr.substring(8, 10),
                      +(c.hhmm.substring(0, 2) || 0), +(c.hhmm.substring(3, 5) || 0));
-    var stare = Date.now() - t.getTime() > 26 * 3600 * 1000;
+    var stare = Date.now() - t.getTime() > 26 * 3600 * 1000, o = c.obnova || {}, pub = o.publikovano || {};
+    var selhala = o.chyba && (!pub.kdy || o.chyba.kdy > pub.kdy);
     return 'data k ' + esc(vedDen(c.todayStr) + ' ' + c.hhmm) +
-      (stare ? ' <span class="stare"' + tip('Data jsou starší než 1 den', 'Noční obnova asi neproběhla. V Sheetu klikni ' + OBNOV + '.') + '>⚠ starší než 1 den</span>' : '');
+      (selhala ? ' <span class="stare"' + tip('Poslední obnova se nepovedla', 'Kdy: ' + kdy(o.chyba.kdy) + ' · krok: ' + o.chyba.krok + '.', 'Chyba: ' + o.chyba.zprava,
+                                              'Stránka ukazuje poslední úplná data (' + vedDen(c.todayStr) + ' ' + c.hhmm + '), nic nesmíchaného. Zkus v Sheetu ' + OBNOV + '.') + '>⚠ obnova selhala</span>'
+               : o.opakuje ? ' <span class="stare"' + tip('Obnova se opakuje', 'Poslední pokus o obnovu narazil na chybu (např. výpadek Raynetu), skript to sám zkusí znovu (pokus ' + o.opakuje + ' ze 3).',
+                                                         'Do té doby stránka ukazuje poslední úplná data.') + '>⏳ obnova se opakuje</span>'
+               : stare ? ' <span class="stare"' + tip('Data jsou starší než 1 den', 'Noční obnova asi neproběhla. V Sheetu klikni ' + OBNOV + '.') + '>⚠ starší než 1 den</span>' : '');
   }
 
   // ── přihlášení: heslo se pošle skriptu v Sheetu; když sedí, vrátí data. Zapamatuje se jen v tomto prohlížeči. ──
@@ -560,6 +732,7 @@
     podpis = JSON.stringify(vys);
     FAKTA = vys[1];
     C = kontext(data);
+    C.obnova = data.obnova || null;
     document.getElementById('stav').innerHTML = stavText(C);
     document.getElementById('oknoObsah').innerHTML = info(C);
     document.getElementById('odhlasit').hidden = false;
