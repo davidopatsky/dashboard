@@ -40,7 +40,7 @@
     css.rel = 'stylesheet'; css.href = 'app.css?v=' + encodeURIComponent(v);
     css.onload = css.onerror = function () { document.body.style.visibility = 'visible'; };
     document.head.appendChild(css);
-    ['config.js', 'app.js'].reduce(function (p, src) {
+    ['config.js', 'vypocet.js', 'app.js'].reduce(function (p, src) {
       return p.then(function () { return new Promise(function (ok, chyba) {
         var s = document.createElement('script'); s.src = src + '?v=' + encodeURIComponent(v); s.onload = ok; s.onerror = chyba;
         document.body.appendChild(s);

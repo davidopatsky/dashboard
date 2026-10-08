@@ -1,13 +1,11 @@
-// Dashboard výkonu obchodníků — data z posledního snímku v Sheetu (JSON { sloupce, radky }), nic se neukládá.
-// Výpočty, pořadí a barevné škály jsou stejné jako ve skriptu v Sheetu; vzhled je vlastní (tmavý dashboard).
-//   Záložka Skóre: tři tabulky vedle sebe jako list pro_vedeni v Sheetu — celá doba / 3 měsíce / 30 dní,
-//   každá seřazená podle svého skóre.
-//   Záložka Měsíční data: obrat, zisk, marže, schůzky a nabídky po měsících pod sebou (scroll), celý rok led–pro;
-//   pod nimi leady a konverze (kanál A+B vs. OP od Sabiny) — počítané tady z „faktů" (?co=fakta) ze Sheetu.
-//   Sheet obnovuje vždy všechna data najednou; když obchody a leady přesto nejsou ze stejného stažení jako
-//   snímek (obnova nedoběhla), konverze se nezobrazí — místo zkreslených čísel je výzva k obnově.
+// Dashboard výkonu obchodníků. Sheet je jen databáze (syrová data z Raynetu, ?co=data&h=…); všechno se
+// počítá tady: vypocet.js (skóre, měsíční součty, konverze, leady), tento soubor vykresluje.
+//   Záložka Skóre: tři tabulky vedle sebe — celá doba / 3 měsíce / 30 dní, každá seřazená podle svého skóre.
+//   Záložka Měsíční data: obrat, zisk, marže, schůzky, nabídky po měsících (celý rok), leady a konverze.
+//   Záložka Leady: co přišlo a kolik kdo dostal za zvolené období.
+// Data v Sheetu se vyměňují až po úplné obnově → všechna čísla jsou vždy z jednoho stažení.
 // Každé číslo má vysvětlivku (data-tip): najetí myší ji ukáže, klepnutí / kliknutí ji připne.
-// Přístup: heslo ověřuje skript v Sheetu (?co=vedeni&h=…, ?co=fakta&h=…); stránka heslo nezná, jen ho pošle.
+// Přístup: heslo ověřuje skript v Sheetu; stránka heslo nezná, jen ho pošle.
 // Automaticky: každých 10 minut (a při návratu na záložku) zkontroluje novou verzi stránky (version.json → znovu
 // načíst) a nová data v Sheetu (→ překreslit na stejném místě), aby nikde nevisela stará verze ani stará čísla.
 (function () {
@@ -17,7 +15,7 @@
   var MONTH_LABELS = ['led', 'úno', 'bře', 'dub', 'kvě', 'čvn', 'čvc', 'srp', 'zář', 'říj', 'lis', 'pro'];
   var MESIC = ['leden', 'únor', 'březen', 'duben', 'květen', 'červen', 'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec'];
   var V_MESICI = ['v lednu', 'v únoru', 'v březnu', 'v dubnu', 'v květnu', 'v červnu', 'v červenci', 'v srpnu', 'v září', 'v říjnu', 'v listopadu', 'v prosinci'];
-  var HEAT_FLOOR_PCT = 0.12, HEAT_GAMMA = 0.75, ALERT_MIN_MONTHS = 2;
+  var HEAT_FLOOR_PCT = 0.12, HEAT_GAMMA = 0.75;
   var VYCHOZI_VAHY = { obrat: 50, zisk: 35, schuzky: 15 }, VYCHOZI_HRANICE = 1200000;
   var OBNOV = '📊 Dashboard → 🔄 Obnovit data pro dashboard';
 
@@ -53,54 +51,6 @@
   // vysvětlivka: první řádek = nadpis, další = výpočet
   function tip() { return ' data-tip="' + esc(Array.prototype.slice.call(arguments).filter(function (x) { return x !== null && x !== ''; }).join('\n')) + '"'; }
 
-  // ── kontext ze snímku (stejně jako kontextZeSnimku_ v Sheetu) ──
-  function kontext(data) {
-    var H = data.sloupce;
-    function num(r, n) { var j = H.indexOf(n); var v = j < 0 ? '' : r[j]; return (v === '' || v === null) ? 0 : Number(v); }
-    function txt(r, n) { var j = H.indexOf(n); return j < 0 ? '' : String(r[j]); }
-    var rows = data.radky.filter(function (r) { return r[0] && num(r, 'schema') >= 2; });
-    if (!rows.length) throw new Error('Ve zdroji zatím není žádný snímek.');
-    var den = rows.map(function (r) { return txt(r, 'snimek'); }).sort().pop();
-    var dnes = rows.filter(function (r) { return txt(r, 'snimek') === den; });
-    var year = num(dnes[0], 'rok') || parseInt(den.substring(0, 4), 10);
-    var prev = rows.filter(function (r) { return num(r, 'rok') === year - 1; });
-    var prevDen = prev.map(function (r) { return txt(r, 'snimek'); }).sort().pop() || '';
-    var prevById = {};
-    prev.forEach(function (r) { if (txt(r, 'snimek') === prevDen) prevById[num(r, 'raynet_id')] = r; });
-    var vahy = txt(dnes[0], 'vahy').split('/').map(Number);
-    var d0 = new Date(+den.substring(0, 4), +den.substring(5, 7) - 1, +den.substring(8, 10));
-    var f30 = new Date(d0.getTime() - 29 * 86400000);
-    var ds = function (x) { return x.getFullYear() + '-' + ('0' + (x.getMonth() + 1)).slice(-2) + '-' + ('0' + x.getDate()).slice(-2); };
-    var c = {
-      rowsOZ: [], jmeno: {}, ratC: {}, ratQ: {}, ratM: {}, win: {}, obYM: {}, ziYM: {}, scYM: {}, nabYM: {}, start: {},
-      W: { obrat: vahy[0] || VYCHOZI_VAHY.obrat, zisk: vahy[1] || VYCHOZI_VAHY.zisk, schuzky: vahy[2] || VYCHOZI_VAHY.schuzky },
-      hranice: num(dnes[0], 'hranice_slaby_mesic') || VYCHOZI_HRANICE,
-      year: year, curMonthIdx: +den.substring(5, 7) - 1, todayStr: den, hhmm: txt(dnes[0], 'cas'), from30Str: ds(f30),
-      stazeno: { obchody: txt(dnes[0], 'stazeno_obchody'), aktivity: txt(dnes[0], 'stazeno_aktivity'), leady: txt(dnes[0], 'stazeno_leady') }
-    };
-    dnes.forEach(function (r) {
-      var d = txt(r, 'oz');
-      c.rowsOZ.push([d, txt(r, 'jmeno'), num(r, 'raynet_id')]);
-      c.jmeno[d] = txt(r, 'jmeno') || d;
-      c.ratC[d] = num(r, 'rating_cela_doba'); c.ratQ[d] = num(r, 'rating_3_mesice'); c.ratM[d] = num(r, 'rating_30_dni');
-      c.start[d] = txt(r, 'od') || (year + '-01');
-      c.win[d] = {};
-      [['c', 'cela'], ['q', '3m'], ['m', '30d']].forEach(function (w) {
-        c.win[d][w[0]] = { dni: num(r, w[1] + '_dni') || 1, o: num(r, w[1] + '_obrat'), z: num(r, w[1] + '_zisk'), s: num(r, w[1] + '_schuzky'),
-                           n: num(r, w[1] + '_nabidky'), w: num(r, w[1] + '_vyhry') };
-      });
-      c.obYM[d] = {}; c.ziYM[d] = {}; c.scYM[d] = {}; c.nabYM[d] = {};
-      var p = prevById[num(r, 'raynet_id')];
-      for (var m = 1; m <= 12; m++) {
-        var mm = ('0' + m).slice(-2);
-        [['obrat', c.obYM], ['zisk', c.ziYM], ['schuzky', c.scYM], ['nabidky', c.nabYM]].forEach(function (x) {
-          x[1][d][year + '-' + mm] = num(r, x[0] + '_' + mm);
-          if (p) x[1][d][(year - 1) + '-' + mm] = num(p, x[0] + '_' + mm);
-        });
-      }
-    });
-    return c;
-  }
   function poradiOZ(c) { return c.rowsOZ.slice().sort(function (a, b) { return (c.ratC[b[0]] - c.ratC[a[0]]) || (c.ratQ[b[0]] - c.ratQ[a[0]]); }); }
 
   // ─────────────────────────── SKÓRE (jako list pro_vedeni v Sheetu) ───────────────────────────
@@ -234,10 +184,10 @@
         var run = [];
         for (var kk = startIdx[d]; kk < curYm; kk++) {
           if ((ym[d][ymKey(kk)] || 0) < c.hranice) { run.push(kk); continue; }
-          if (run.length >= ALERT_MIN_MONTHS) run.forEach(function (x) { alarm[x] = true; });
+          if (run.length >= c.alarmMesicu) run.forEach(function (x) { alarm[x] = true; });
           run = [];
         }
-        if (run.length >= ALERT_MIN_MONTHS) run.forEach(function (x) { alarm[x] = true; });
+        if (run.length >= c.alarmMesicu) run.forEach(function (x) { alarm[x] = true; });
       }
       var row = '<tr><td class="l st oz">' + esc(d) + '</td>';
       months.forEach(function (kk, i) {
@@ -273,18 +223,8 @@
   }
 
   // ─────────────────── LEADY A KONVERZE (kanál A+B vs. OP od Sabiny) ───────────────────
-  // Zdroj = „fakta" ze Sheetu: počty po osobě × měsíci, uložené při každé obnově dat (obchody, leady)
-  // i s časem stažení. Konverze se počítají tady.
-  var SABINA = 'Sabina Kratochvíl';
-  function faktaIndex(F) {
-    var x = {};   // x[metrika][osoba][ymIdx]; osoba = zobrazované jméno OZ, jinak plné jméno vlastníka
-    F.radky.forEach(function (r) {
-      var kdo = r[2] || r[1], rok = Number(r[4]);
-      var o = (x[r[3]] = x[r[3]] || {}), q = (o[kdo] = o[kdo] || {});
-      for (var i = 0; i < 12; i++) if (r[5 + i]) q[rok * 12 + i + 1] = (q[rok * 12 + i + 1] || 0) + Number(r[5 + i]);
-    });
-    return x;
-  }
+  // Počty po osobě × měsíci spočítané ve vypocet.js ze syrových dat; konverze se počítají tady.
+  var SABINA = 'Sabina Kratochvíl';   // přepíše se podle role „pre-sales" v listu nastaveni
   function kdy(s) { return s ? parseInt(s.substring(8, 10), 10) + '. ' + parseInt(s.substring(5, 7), 10) + '. ' + s.substring(11, 16) : 'nikdy'; }
 
   // Snímek výkonu i fakta se publikují jedním krokem na konci obnovy a nesou časy stažení. Když nesedí
@@ -310,7 +250,7 @@
     var h = ['<div class="skupina" id="m-leady-skupina">Leady a konverze · kanál A+B vs. OP od Sabiny</div>'];
     var ne = nesoulad(c, F);
     if (ne) return h.join('') + '<div class="nic' + (F ? ' varovani' : '') + '">' + (F ? '⚠ ' : '') + ne + '</div>';
-    var x = faktaIndex(F), curYm = c.year * 12 + c.curMonthIdx + 1, months = rokMesice(c);
+    var x = F.x, curYm = c.year * 12 + c.curMonthIdx + 1, months = rokMesice(c);
     var ord = poradiOZ(c).map(function (r) { return r[0]; });
     var jeOZ = {}; ord.forEach(function (d) { jeOZ[d] = true; });
     var g = function (met, kdo, k) { return ((x[met] || {})[kdo] || {})[k] || 0; };
@@ -694,14 +634,8 @@
   function ulozene() { try { return localStorage.getItem(HESLO_KEY) || ''; } catch (e) { return ''; } }
   function ulozit(h) { try { if (h) localStorage.setItem(HESLO_KEY, h); else localStorage.removeItem(HESLO_KEY); } catch (e) {} }
   var Q = new URLSearchParams(location.search);
-  var base = Q.get('api') || (window.DASH_CONFIG.API_URL + '?co=vedeni');
-  var baseFakta = Q.get('fakta') || (window.DASH_CONFIG.API_URL + '?co=fakta');
+  var base = Q.get('api') || (window.DASH_CONFIG.API_URL + '?co=data');
   function sHeslem(u, heslo) { return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'h=' + encodeURIComponent(heslo); }
-  // fakta jsou doplněk: když je zdroj ještě nemá, stránka funguje dál bez nich
-  function nactiFakta(heslo) {
-    return fetch(sHeslem(baseFakta, heslo)).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) { return d && d.radky && d.radky.length ? d : null; }).catch(function () { return null; });
-  }
   function nacti(heslo) {
     return fetch(sHeslem(base, heslo)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
       .then(function (t) {
@@ -727,12 +661,16 @@
       start(h);
     });
   }
-  function pouzijData(vys) {
-    var data = vys[0];
-    podpis = JSON.stringify(vys);
-    FAKTA = vys[1];
-    C = kontext(data);
-    C.obnova = data.obnova || null;
+  function pouzijData(data) {
+    podpis = JSON.stringify(data);
+    if (!data.publikovano) {
+      document.getElementById('obsah').innerHTML = '<div class="msg">Data se zobrazí po první úplné obnově. V Sheetu klikni <b>' + esc(OBNOV) + '</b>.</div>';
+      return;
+    }
+    var v = window.Vypocet.spocitej(data);
+    C = v.c; FAKTA = v.F;
+    if (FAKTA.presales) SABINA = FAKTA.presales;
+    C.obnova = { chyba: (data.obnova || {}).chyba, opakuje: (data.obnova || {}).opakuje, publikovano: data.publikovano };
     document.getElementById('stav').innerHTML = stavText(C);
     document.getElementById('oknoObsah').innerHTML = info(C);
     document.getElementById('odhlasit').hidden = false;
@@ -744,10 +682,10 @@
   function start(heslo) {
     if (!heslo) { prihlaseni(''); return; }
     document.getElementById('obsah').innerHTML = '<div class="msg">Načítám data…</div>';
-    Promise.all([nacti(heslo), nactiFakta(heslo)]).then(function (vys) {
+    nacti(heslo).then(function (data) {
       ulozit(heslo);
       HESLO = heslo;
-      pouzijData(vys);
+      pouzijData(data);
     }).catch(function (err) {
       if (err.heslo) { ulozit(''); prihlaseni('Špatné heslo.'); return; }
       document.getElementById('obsah').innerHTML = '<div class="msg chyba">Data se nepodařilo načíst (' + esc(err.message) + ').</div>';
@@ -763,10 +701,10 @@
       'Poslední kontrola: ' + hhmm(new Date()) + '.');
   }
   function obnovData() {
-    Promise.all([nacti(HESLO), nactiFakta(HESLO)]).then(function (vys) {
-      if (JSON.stringify(vys) === podpis) { oznacKontrolu(); return; }   // nic nového → nepřekreslovat
+    nacti(HESLO).then(function (data) {
+      if (JSON.stringify(data) === podpis) { oznacKontrolu(); return; }   // nic nového → nepřekreslovat
       var y = window.pageYOffset;
-      pouzijData(vys);
+      pouzijData(data);
       window.scrollTo(0, y);
     }).catch(function (err) {
       if (err.heslo) { ulozit(''); HESLO = ''; C = null; prihlaseni('Heslo se změnilo — přihlas se znovu.'); }
