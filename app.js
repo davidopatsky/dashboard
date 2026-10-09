@@ -438,77 +438,87 @@
       '<label class="vlastni">do <input type="date" id="lDo" value="' + do_ + '" min="' + RANGE_OD(c) + '" max="' + konec + '"></label>' +
       '<span class="pozn">' + esc(obdTxt) + ' · data k ' + esc(kdy(F.leadyDny.stazeno)) + '</span></div>');
 
-    // dlaždice
+    // ── jednotný systém pro všechny tři tabulky: stejné pořadí zdrojů ve sloupcích, Celkem za svislou čarou,
+    //    % nevalidních poslední, součet vždy dole; tabulky jen tak široké, jak potřebují ──
+    var zUkaz = ZDROJE.map(function (zd, i) { return i; }).filter(function (i) { return Z[i].n > 0; });
+    var prumNev = celkem.n ? (celkem.n - celkem.v) / celkem.n : 0;
+    var nevBunka = function (x, t0) {   // % nevalidních: červeně jen když je výrazně nad průměrem období (a vzorek není malý)
+      if (!x.n) return '<td class="nula">·</td>';
+      var p = (x.n - x.v) / x.n, vysoko = x.n >= 10 && p >= Math.max(0.1, prumNev * 1.5);
+      return '<td class="nev' + (vysoko ? ' vysoko' : '') + '"' + tip(t0, 'Nevalidní (fáze Zrušený): ' + (x.n - x.v) + ' z ' + x.n + ' = ' + pctN(x),
+        'Průměr období: ' + Math.round(prumNev * 100) + ' %.' + (vysoko ? ' Červeně = výrazně nad průměrem.' : '')) + '>' + pctN(x) + '</td>';
+    };
+    var hlavaZdroju = function (prvni, sNev) {
+      return '<thead><tr><th class="l st">' + prvni + '</th>' + zUkaz.map(function (i) { return '<th>' + esc(ZDROJE[i].n) + '</th>'; }).join('') + '<th class="sep">Celkem</th>' +
+             (sNev ? '<th' + tip('% nevalidních', 'Podíl leadů ve fázi Zrušený.', 'Červeně = výrazně nad průměrem období.') + '>% nevalid.</th>' : '') + '</tr></thead>';
+    };
+    var bunkyZdroju = function (zz, max, t0) {
+      return zUkaz.map(function (i) { var v = zz[i]; return v ? '<td class="h" style="' + bg(modra(v / max)) + '"' + tip(t0 + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('');
+    };
+    var radekCelkem = function (sNev) {
+      return '<tr class="tym"><td class="l st">Celkem</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') +
+             '<td class="sep">' + celkem.n + '</td>' + (sNev ? '<td class="nev">' + pctN(celkem) + '</td>' : '') + '</tr>';
+    };
+
+    // dlaždice: jen to, co tabulky neříkají na první pohled
     var zmena = pred > 0 ? Math.round((celkem.n - pred) / pred * 100) : null;
     var dl = function (nazev, hodnota, pod, t) { return '<div class="dlazdice"' + t + '><span>' + nazev + '</span><b>' + hodnota + '</b>' + (pod ? '<small>' + pod + '</small>' : '') + '</div>'; };
-    h.push('<div class="dlazdice-r">' +
-      dl('Leady', tis(celkem.n), zmena === null ? '' : (zmena >= 0 ? '+' : '') + zmena + ' % proti předchozím ' + dni + ' dnům',
+    h.push('<div class="dlazdice-r tri">' +
+      dl('Leady', tis(celkem.n), zmena === null ? '' : (zmena >= 0 ? '▲ +' : '▼ ') + zmena + ' % proti předchozím ' + dni + ' dnům',
          tip('Leady v období', 'Všechny leady firmy s datem leadu v období (bez ohledu na vlastníka): ' + celkem.n + '.',
              'Předchozí stejně dlouhé období (' + denTxt(predOd) + ' – ' + denTxt(predDo) + '): ' + pred + '.')) +
-      dl('Validní', tis(celkem.v), '', tip('Validní leady', 'Fáze leadu ≠ Zrušený: ' + celkem.v + ' z ' + celkem.n + '.')) +
-      dl('Nevalidní', tis(celkem.n - celkem.v), pctN(celkem) + ' nevalidních', tip('Nevalidní leady', 'Fáze Zrušený: ' + (celkem.n - celkem.v) + ' z ' + celkem.n + ' = ' + pctN(celkem) + '.')) +
-      dl('Ø za den', des1(celkem.n / dni), '', tip('Průměr za den', celkem.n + ' leadů ÷ ' + dni + ' dní = ' + des1(celkem.n / dni) + '.')) + '</div>');
+      dl('Nevalidní', pctN(celkem), (celkem.n - celkem.v) + ' z ' + celkem.n + ' leadů zrušeno',
+         tip('Nevalidní leady', 'Fáze Zrušený: ' + (celkem.n - celkem.v) + ' z ' + celkem.n + ' = ' + pctN(celkem) + '.', 'Validních: ' + celkem.v + '.')) +
+      dl('Ø za den', des1(celkem.n / dni), dni + ' ' + (dni === 1 ? 'den' : dni < 5 ? 'dny' : 'dní'), tip('Průměr za den', celkem.n + ' leadů ÷ ' + dni + ' dní = ' + des1(celkem.n / dni) + '.')) + '</div>');
 
-    // co přišlo — podle zdroje
-    var maxZ = Math.max.apply(null, Z.map(function (x) { return x.n; }).concat([1]));
-    var hiP = Math.max.apply(null, Z.filter(function (x) { return x.n > 0; }).map(function (x) { return (x.n - x.v) / x.n; }).concat([0.01]));
-    h.push(sekce('l-zdroj', 'Co přišlo — podle zdroje', 'počet leadů v období', ['Leady podle pole Zdroj kontaktu v Raynetu, sloučené do 4 hlavních zdrojů + Ostatní.',
-      'Ostatní v období: ' + (ostZTxt || 'nic') + '.', 'Barva: modrá = víc leadů; % nevalidních zelená = málo, červená = hodně.']));
-    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">Zdroj</th><th>Leady</th><th>Validní</th><th>Nevalidní</th><th>% nevalidních</th><th class="l">Podíl</th></tr></thead><tbody>');
-    ZDROJE.forEach(function (zd, i) {
-      var x = Z[i]; if (!x.n && i === ZDROJE.length - 1) return;
-      var t0 = zd.n + ' · ' + obdTxt, p = x.n > 0 ? (x.n - x.v) / x.n : null, podil = celkem.n ? x.n / celkem.n : 0;
+    h.push('<div class="leady2">');
+    // 1) co přišlo — podle zdroje (řádky = zdroje ve stejném pořadí jako sloupce ostatních tabulek)
+    h.push('<div>' + sekce('l-zdroj', 'Co přišlo', 'podle zdroje', ['Leady podle pole Zdroj kontaktu v Raynetu, sloučené do 4 hlavních zdrojů + Ostatní.',
+      'Ostatní v období: ' + (ostZTxt || 'nic') + '.']));
+    h.push('<div class="tw uzky"><table class="g lt"><thead><tr><th class="l st">Zdroj</th><th>Leady</th><th class="l">Podíl</th><th' +
+      tip('% nevalidních', 'Podíl leadů ve fázi Zrušený.', 'Červeně = výrazně nad průměrem období.') + '>% nevalid.</th></tr></thead><tbody>');
+    zUkaz.forEach(function (i) {
+      var zd = ZDROJE[i], x = Z[i], t0 = zd.n + ' · ' + obdTxt, podil = celkem.n ? x.n / celkem.n : 0;
       h.push('<tr><td class="l st oz"' + (i === ZDROJE.length - 1 ? tip('Ostatní zdroje', ostZTxt || 'nic') : tip(zd.n, 'Zdroj kontaktu v Raynetu: ' + zd.z.join(', ') + '.')) + '>' + esc(zd.n) + '</td>' +
-        '<td class="h" style="' + bg(modra(x.n / maxZ)) + '"' + tip(t0, 'Leady: ' + x.n) + '>' + x.n + '</td>' +
-        '<td' + tip(t0, 'Validní (fáze ≠ Zrušený): ' + x.v) + '>' + x.v + '</td>' +
-        '<td' + tip(t0, 'Nevalidní (fáze Zrušený): ' + (x.n - x.v)) + '>' + (x.n - x.v) + '</td>' +
-        (p === null ? '<td>–</td>' : '<td class="h" style="' + bg(heatColor(1 - p / hiP)) + '"' + tip(t0, 'Nevalidní ' + (x.n - x.v) + ' ÷ leady ' + x.n + ' = ' + pctN(x)) + '>' + pctN(x) + '</td>') +
-        '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + x.n + ' ÷ ' + celkem.n + ' = ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td></tr>');
+        '<td class="cislo"' + tip(t0, 'Leady: ' + x.n, 'Validní: ' + x.v + ' · nevalidní: ' + (x.n - x.v)) + '>' + x.n + '</td>' +
+        '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + x.n + ' ÷ ' + celkem.n + ' = ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td>' +
+        nevBunka(x, t0) + '</tr>');
     });
-    h.push('<tr class="tym"><td class="l st">Celkem</td><td>' + celkem.n + '</td><td>' + celkem.v + '</td><td>' + (celkem.n - celkem.v) + '</td><td>' + pctN(celkem) + '</td><td class="l">100 %</td></tr></tbody></table></div>');
+    h.push('<tr class="tym"><td class="l st">Celkem</td><td>' + celkem.n + '</td><td class="l">100 %</td><td class="nev">' + pctN(celkem) + '</td></tr></tbody></table></div></div>');
 
-    // kolik kdo dostal — podle vlastníka (× zdroj)
+    // 2) kolik kdo dostal — podle vlastníka (sloupce = zdroje)
     var kdo = Object.keys(O).filter(function (k) { return k !== 'Ostatní'; }).sort(function (a, b) { return O[b].n - O[a].n; });
     if (O['Ostatní']) kdo.push('Ostatní');
-    var zUkaz = ZDROJE.map(function (zd, i) { return i; }).filter(function (i) { return Z[i].n > 0; });
     var maxO = 1; kdo.forEach(function (k) { zUkaz.forEach(function (i) { maxO = Math.max(maxO, O[k].z[i]); }); });
-    var maxOn = Math.max.apply(null, kdo.map(function (k) { return O[k].n; }).concat([1]));
-    h.push(sekce('l-kdo', 'Kolik kdo dostal — podle vlastníka', 'komu byl lead přidělen (vlastník leadu v Raynetu)', ['Vlastník leadu v Raynetu = komu byl lead přidělen. Počítají se všechny leady s datem v období.',
-      'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: modrá = víc leadů.']));
-    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">Vlastník</th>' + zUkaz.map(function (i) { return '<th>' + esc(ZDROJE[i].n) + '</th>'; }).join('') +
-      '<th class="sep">Celkem</th><th>Validní</th><th>% nevalidních</th><th class="l">Podíl</th></tr></thead><tbody>');
+    h.push('<div>' + sekce('l-kdo', 'Kolik kdo dostal', 'podle vlastníka leadu', ['Vlastník leadu v Raynetu = komu byl lead přidělen.',
+      'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: sytější modrá = víc leadů.']));
+    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju('Vlastník', true) + '<tbody>');
     kdo.forEach(function (k) {
-      var o = O[k], t0 = k + ' · ' + obdTxt, podil = celkem.n ? o.n / celkem.n : 0;
+      var o = O[k], t0 = k + ' · ' + obdTxt;
       h.push('<tr' + (k === 'Ostatní' ? ' class="ost"' : '') + '><td class="l st oz"' + (k === 'Ostatní' ? tip('Ostatní vlastníci', ostTxt || 'nikdo') : '') + '>' + esc(k) + '</td>' +
-        zUkaz.map(function (i) { var v = o.z[i]; return v ? '<td class="h" style="' + bg(modra(v / maxO)) + '"' + tip(t0, ZDROJE[i].n + ': ' + v + ' leadů') + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('') +
-        '<td class="sep h" style="' + bg(modra(o.n / maxOn)) + '"' + tip(t0, 'Leady celkem: ' + o.n) + '>' + o.n + '</td>' +
-        '<td' + tip(t0, 'Validní: ' + o.v + ' z ' + o.n) + '>' + o.v + '</td><td' + tip(t0, 'Nevalidní ' + (o.n - o.v) + ' ÷ ' + o.n + ' = ' + pctN(o)) + '>' + pctN(o) + '</td>' +
-        '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td></tr>');
+        bunkyZdroju(o.z, maxO, t0) + '<td class="sep cel"' + tip(t0, 'Leady celkem: ' + o.n + ' (' + Math.round(celkem.n ? o.n / celkem.n * 100 : 0) + ' % všech)') + '>' + o.n + '</td>' + nevBunka(o, t0) + '</tr>');
     });
-    h.push('<tr class="tym"><td class="l st">Celkem</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') +
-      '<td class="sep">' + celkem.n + '</td><td>' + celkem.v + '</td><td>' + pctN(celkem) + '</td><td class="l">100 %</td></tr></tbody></table></div>');
+    h.push(radekCelkem(true) + '</tbody></table></div></div></div>');
 
-    // průběh — po dnech (nejnovější nahoře), u delšího období po měsících
+    // 3) průběh — po dnech (nejnovější nahoře), u delšího období po měsících; součet je v tabulkách výše
     var klice = [];
-    if (poMesicich) { for (var k2 = ymToIdx(od); k2 <= ymToIdx(do_); k2++) klice.push(ymKey(k2)); }
+    if (poMesicich) { for (var k2 = ymToIdx(od); k2 <= ymToIdx(do_); k2++) klice.push(ymKey(k2)); klice.reverse(); }
     else { for (var d = do_; d >= od; d = plusDny(d, -1)) klice.push(d); }
-    if (poMesicich) klice.reverse();
-    var maxP = 1, maxPn = 1;
-    klice.forEach(function (k) { var p = prubeh[k]; if (!p) return; maxPn = Math.max(maxPn, p.n); zUkaz.forEach(function (i) { maxP = Math.max(maxP, p.z[i]); }); });
-    h.push(sekce('l-prubeh', 'Průběh — ' + (poMesicich ? 'po měsících' : 'po dnech'), poMesicich ? 'nejnovější nahoře' : 'nejnovější nahoře · víkendy šedě',
-      ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: modrá = víc leadů.']));
-    h.push('<div class="tw"><table class="g lt"><thead><tr><th class="l st">' + (poMesicich ? 'Měsíc' : 'Den') + '</th>' +
-      zUkaz.map(function (i) { return '<th>' + esc(ZDROJE[i].n) + '</th>'; }).join('') + '<th class="sep">Celkem</th><th>Validní</th></tr></thead><tbody>');
-    h.push('<tr class="tym"><td class="l st">Σ období</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') + '<td class="sep">' + celkem.n + '</td><td>' + celkem.v + '</td></tr>');
+    var maxP = 1;
+    klice.forEach(function (k) { var p = prubeh[k]; if (p) zUkaz.forEach(function (i) { maxP = Math.max(maxP, p.z[i]); }); });
+    h.push(sekce('l-prubeh', 'Průběh', (poMesicich ? 'po měsících' : 'po dnech') + ' · nejnovější nahoře',
+      ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: sytější modrá = víc leadů.']));
+    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju(poMesicich ? 'Měsíc' : 'Den', false) + '<tbody>');
     klice.forEach(function (k) {
       var p = prubeh[k] || { n: 0, v: 0, z: ZDROJE.map(function () { return 0; }) };
-      var popisek = poMesicich ? MESIC[parseInt(k.substring(5, 7), 10) - 1] + ' ' + k.substring(0, 4) : denTxt(k) + (k === konec ? ' · do ' + F.leadyDny.stazeno.substring(11, 16) : '');
+      var dnes = !poMesicich && k === konec;
+      var popisek = poMesicich ? MESIC[parseInt(k.substring(5, 7), 10) - 1] + ' ' + k.substring(0, 4) : denTxt(k);
       var vikend = !poMesicich && (zIso(k).getDay() === 0 || zIso(k).getDay() === 6);
-      h.push('<tr' + (vikend ? ' class="vikend"' : '') + '><td class="l st oz">' + esc(popisek) + '</td>' +
-        zUkaz.map(function (i) { var v = p.z[i]; return v ? '<td class="h" style="' + bg(modra(v / maxP)) + '"' + tip(popisek + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('') +
-        '<td class="sep h" style="' + bg(modra(p.n / maxPn)) + '"' + tip(popisek, 'Leady celkem: ' + p.n, 'Validní: ' + p.v) + '>' + p.n + '</td><td>' + p.v + '</td></tr>');
+      h.push('<tr class="' + (vikend ? 'vikend' : '') + (dnes ? ' dnes' : '') + '"><td class="l st oz">' + esc(popisek) +
+        (dnes ? '<small> do ' + esc(F.leadyDny.stazeno.substring(11, 16)) + '</small>' : '') + '</td>' +
+        bunkyZdroju(p.z, maxP, popisek) + '<td class="sep cel"' + tip(popisek, 'Leady celkem: ' + p.n, 'Validní: ' + p.v + ' · nevalidní: ' + (p.n - p.v)) + '>' + p.n + '</td></tr>');
     });
-    h.push('</tbody></table></div>');
+    h.push(radekCelkem(false) + '</tbody></table></div>');
     return h.join('');
   }
   function rozsahJeVolba(id) { return OBDOBI_L.some(function (o) { return o.id === id; }); }
