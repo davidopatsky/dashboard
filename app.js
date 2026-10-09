@@ -439,7 +439,7 @@
       '<span class="pozn">' + esc(obdTxt) + ' · data k ' + esc(kdy(F.leadyDny.stazeno)) + '</span></div>');
 
     // ── jednotný systém pro všechny tři tabulky: stejné pořadí zdrojů ve sloupcích, Celkem za svislou čarou,
-    //    % nevalidních poslední, součet vždy dole; tabulky jen tak široké, jak potřebují ──
+    //    % nevalidních poslední, součet „Σ za období" vždy jako první řádek; tabulky jen tak široké, jak potřebují ──
     var zUkaz = ZDROJE.map(function (zd, i) { return i; }).filter(function (i) { return Z[i].n > 0; });
     var prumNev = celkem.n ? (celkem.n - celkem.v) / celkem.n : 0;
     var nevBunka = function (x, t0) {   // % nevalidních: červeně jen když je výrazně nad průměrem období (a vzorek není malý)
@@ -477,7 +477,9 @@
     h.push('<div>' + sekce('l-zdroj', 'Co přišlo', 'podle zdroje', ['Leady podle pole Zdroj kontaktu v Raynetu, sloučené do 4 hlavních zdrojů + Ostatní.',
       'Ostatní v období: ' + (ostZTxt || 'nic') + '.']));
     h.push('<div class="tw uzky"><table class="g lt"><thead><tr><th class="l st">Zdroj</th><th>Leady</th><th class="l">Podíl</th><th' +
-      tip('% nevalidních', 'Podíl leadů ve fázi Zrušený.', 'Červeně = výrazně nad průměrem období.') + '>% nevalid.</th></tr></thead><tbody>');
+      tip('% nevalidních', 'Podíl leadů ve fázi Zrušený.', 'Červeně = výrazně nad průměrem období.') + '>% nevalid.</th></tr></thead><tbody>' +
+      '<tr class="tym nahore"><td class="l st"' + tip('Σ za období', 'Součet za období ' + obdTxt + '.') + '>Σ za období</td><td' + tip('Σ za období', 'Leady: ' + celkem.n, 'Validní: ' + celkem.v + ' · nevalidní: ' + (celkem.n - celkem.v)) + '>' + celkem.n +
+      '</td><td class="l">100 %</td><td class="nev">' + pctN(celkem) + '</td></tr>');
     zUkaz.forEach(function (i) {
       var zd = ZDROJE[i], x = Z[i], t0 = zd.n + ' · ' + obdTxt, podil = celkem.n ? x.n / celkem.n : 0;
       h.push('<tr><td class="l st oz"' + (i === ZDROJE.length - 1 ? tip('Ostatní zdroje', ostZTxt || 'nic') : tip(zd.n, 'Zdroj kontaktu v Raynetu: ' + zd.z.join(', ') + '.')) + '>' + esc(zd.n) + '</td>' +
@@ -485,7 +487,7 @@
         '<td class="l"' + tip(t0, 'Podíl na všech leadech: ' + x.n + ' ÷ ' + celkem.n + ' = ' + Math.round(podil * 100) + ' %') + '><div class="podil"><i style="width:' + Math.max(2, podil * 100) + '%"></i><span>' + Math.round(podil * 100) + ' %</span></div></td>' +
         nevBunka(x, t0) + '</tr>');
     });
-    h.push('<tr class="tym"><td class="l st">Celkem</td><td>' + celkem.n + '</td><td class="l">100 %</td><td class="nev">' + pctN(celkem) + '</td></tr></tbody></table></div></div>');
+    h.push('</tbody></table></div></div>');
 
     // 2) kolik kdo dostal — podle vlastníka (sloupce = zdroje)
     var kdo = Object.keys(O).filter(function (k) { return k !== 'Ostatní'; }).sort(function (a, b) { return O[b].n - O[a].n; });
@@ -493,13 +495,13 @@
     var maxO = 1; kdo.forEach(function (k) { zUkaz.forEach(function (i) { maxO = Math.max(maxO, O[k].z[i]); }); });
     h.push('<div>' + sekce('l-kdo', 'Kolik kdo dostal', 'podle vlastníka leadu', ['Vlastník leadu v Raynetu = komu byl lead přidělen.',
       'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: sytější modrá = víc leadů.']));
-    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju('Vlastník', true) + '<tbody>');
+    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju('Vlastník', true) + '<tbody>' + radekCelkem(true, 'Σ za období', 'nahore'));
     kdo.forEach(function (k) {
       var o = O[k], t0 = k + ' · ' + obdTxt;
       h.push('<tr' + (k === 'Ostatní' ? ' class="ost"' : '') + '><td class="l st oz"' + (k === 'Ostatní' ? tip('Ostatní vlastníci', ostTxt || 'nikdo') : '') + '>' + esc(k) + '</td>' +
         bunkyZdroju(o.z, maxO, t0) + '<td class="sep cel"' + tip(t0, 'Leady celkem: ' + o.n + ' (' + Math.round(celkem.n ? o.n / celkem.n * 100 : 0) + ' % všech)') + '>' + o.n + '</td>' + nevBunka(o, t0) + '</tr>');
     });
-    h.push(radekCelkem(true) + '</tbody></table></div></div></div>');
+    h.push('</tbody></table></div></div></div>');
 
     // 3) průběh — po dnech (nejnovější nahoře), u delšího období po měsících; součet je v tabulkách výše
     var klice = [];
