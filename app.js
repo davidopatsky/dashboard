@@ -263,11 +263,11 @@
     var ostL = ostatni('leady_validni'), vsiL = ord.concat([SABINA], ostL);
     var leadyDef = function (kdo, k) { return 'Validní leady (fáze ≠ Zrušený) s vlastníkem ' + kdo + ' a datem leadu ' + vMes(k) + '.'; };
     h.push(tabulka(c, months, curYm, {
-      id: 'm-leady', nazev: 'Přidělené leady A+B', popis: 'validní leady (bez zrušených), vlastník = obchodník · zelená = méně leadů',
+      id: 'm-leady', nazev: 'Přidělené leady A+B', popis: 'validní leady (bez zrušených), vlastník = obchodník',
       tipNadpis: ['Přidělené leady A+B = validní leady (fáze ≠ Zrušený), kde je obchodník vlastníkem; měsíc podle data leadu.',
                   'Tým (celá firma) = všechny validní leady firmy, proto jsou v tabulce i Sabina a Ostatní.',
-                  'Barva: zelená = méně leadů (stejný výsledek s menším přídělem leadů je lepší), červená = víc.'],
-      typ: 'pocet', obracene: true, fmt: pocet, start: start,
+                  'Barva: sytější modrá = víc leadů (množství, ne hodnocení).'],
+      typ: 'pocet', modra: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('leady_validni', d, k); }, kdo: d }; })
         .concat([{ nazev: 'Sabina (pre-sales)', v: function (k) { return g('leady_validni', SABINA, k); }, kdo: SABINA }])
         .concat(ostL.length ? [{ nazev: 'Ostatní', title: ostL.join(', '), v: function (k) { return g2('leady_validni', ostL, k); }, kdo: ostL.join(', ') }] : []),
@@ -297,10 +297,10 @@
     // Přidělené OP od Sabiny — kategorie S-zaměření, jakýkoli stav, měsíc dle otevření OP
     var ostS = ostatni('op_sabina'), vsiS = ord.concat(ostS);
     h.push(tabulka(c, months, curYm, {
-      id: 'm-opsab', nazev: 'Přidělené OP od Sabiny', popis: 'obchodní případy kategorie S-zaměření (jakýkoli stav), měsíc dle otevření · zelená = méně',
+      id: 'm-opsab', nazev: 'Přidělené OP od Sabiny', popis: 'obchodní případy kategorie S-zaměření (jakýkoli stav), měsíc dle otevření',
       tipNadpis: ['Přidělené OP od Sabiny = obchodní případy kategorie S-zaměření (jakýkoli stav), kde je obchodník vlastníkem; měsíc podle data otevření OP.',
-                  'Barva: zelená = méně, červená = víc.'],
-      typ: 'pocet', obracene: true, fmt: pocet, start: start,
+                  'Barva: sytější modrá = víc OP (množství, ne hodnocení).'],
+      typ: 'pocet', modra: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('op_sabina', d, k); }, kdo: d }; })
         .concat(ostS.length ? [{ nazev: 'Ostatní', title: ostS.join(', '), v: function (k) { return g2('op_sabina', ostS, k); }, kdo: ostS.join(', ') }] : []),
       tym: function (k) { return g2('op_sabina', vsiS, k); }, tymNazev: 'Tým',
@@ -346,7 +346,7 @@
     }); });
     function barva(v) {
       var f = t.typ === 'pocet' ? (hi > 0 ? v / hi : 0) : (ref ? v / (2 * ref) : 0.5);
-      return heatColor(t.obracene ? 1 - f : f);
+      return t.modra ? modra(f) : heatColor(f);   // množství modře, výkon červená → zelená
     }
     function souhrn(r) {
       var ks = months.filter(function (k) { return k <= curYm; });
@@ -538,7 +538,7 @@
       'Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' + vedMil(c.hranice) + '. Šedý sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí.</p>' +
       '<h3>Leady a konverze</h3>' +
       '<p>Konverze A+B = vyhraná OP mimo kategorii S-zaměření (měsíc dle data výhry) ÷ validní leady obchodníka — celkové počty, bez ohledu na to, jestli je OP v Raynetu navázané na lead. ' +
-      'U přidělených leadů a OP od Sabiny je zelená ten, kdo jich má méně. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
+      'Přidělené leady a OP od Sabiny jsou množství — sytější modrá = víc. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
       '<h3>Leady</h3>' +
       '<p>Záložka Leady = všechny leady firmy podle data leadu, bez ohledu na vlastníka, za zvolené období. Validní = fáze ≠ Zrušený. ' +
       'Zdroje jsou sloučené do 4 hlavních + Ostatní, vlastníci na obchodníky, Sabinu a Ostatní — co je v „Ostatní", ukáže vysvětlivka.</p>' +
