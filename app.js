@@ -455,9 +455,10 @@
     var bunkyZdroju = function (zz, max, t0) {
       return zUkaz.map(function (i) { var v = zz[i]; return v ? '<td class="h" style="' + bg(modra(v / max)) + '"' + tip(t0 + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('');
     };
-    var radekCelkem = function (sNev) {
-      return '<tr class="tym"><td class="l st">Celkem</td>' + zUkaz.map(function (i) { return '<td>' + Z[i].n + '</td>'; }).join('') +
-             '<td class="sep">' + celkem.n + '</td>' + (sNev ? '<td class="nev">' + pctN(celkem) + '</td>' : '') + '</tr>';
+    var radekCelkem = function (sNev, nazev, cls) {
+      return '<tr class="tym' + (cls ? ' ' + cls : '') + '"><td class="l st"' + tip(nazev || 'Celkem', 'Součet za období ' + obdTxt + '.') + '>' + (nazev || 'Celkem') + '</td>' +
+             zUkaz.map(function (i) { return '<td' + tip((nazev || 'Celkem') + ' · ' + ZDROJE[i].n, 'Leady za období: ' + Z[i].n) + '>' + Z[i].n + '</td>'; }).join('') +
+             '<td class="sep"' + tip(nazev || 'Celkem', 'Leady za období: ' + celkem.n) + '>' + celkem.n + '</td>' + (sNev ? '<td class="nev">' + pctN(celkem) + '</td>' : '') + '</tr>';
     };
 
     // dlaždice: jen to, co tabulky neříkají na první pohled
@@ -508,7 +509,8 @@
     klice.forEach(function (k) { var p = prubeh[k]; if (p) zUkaz.forEach(function (i) { maxP = Math.max(maxP, p.z[i]); }); });
     h.push(sekce('l-prubeh', 'Průběh', (poMesicich ? 'po měsících' : 'po dnech') + ' · nejnovější nahoře',
       ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: sytější modrá = víc leadů.']));
-    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju(poMesicich ? 'Měsíc' : 'Den', false) + '<tbody>');
+    // dlouhá tabulka → součet za období a za každý sloupec hned nahoře
+    h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju(poMesicich ? 'Měsíc' : 'Den', false) + '<tbody>' + radekCelkem(false, 'Σ za období', 'nahore'));
     klice.forEach(function (k) {
       var p = prubeh[k] || { n: 0, v: 0, z: ZDROJE.map(function () { return 0; }) };
       var dnes = !poMesicich && k === konec;
@@ -518,7 +520,7 @@
         (dnes ? '<small> do ' + esc(F.leadyDny.stazeno.substring(11, 16)) + '</small>' : '') + '</td>' +
         bunkyZdroju(p.z, maxP, popisek) + '<td class="sep cel"' + tip(popisek, 'Leady celkem: ' + p.n, 'Validní: ' + p.v + ' · nevalidní: ' + (p.n - p.v)) + '>' + p.n + '</td></tr>');
     });
-    h.push(radekCelkem(false) + '</tbody></table></div>');
+    h.push('</tbody></table></div>');
     return h.join('');
   }
   function rozsahJeVolba(id) { return OBDOBI_L.some(function (o) { return o.id === id; }); }

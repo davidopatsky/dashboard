@@ -98,6 +98,7 @@
   table.lt td.l.st { min-width: 150px; font-size: 15px; }
   table.lt td.cislo, table.lt td.cel { font-weight: 700; }
   table.lt td.nula { color: var(--dim); text-align: center; }
+  table.mx tr.tym.nahore td, table.lt tr.tym.nahore td { border-top: 0; border-bottom: 2px solid var(--line-2); }
   table.lt td.nev { color: var(--muted); }
   table.lt td.nev.vysoko { color: #FF8A8A; font-weight: 800; }
   table.lt tr.vikend td.oz { color: var(--muted); }
