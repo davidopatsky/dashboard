@@ -130,8 +130,8 @@
   ];
 
   function renderMesice(c) {
-    return '<p class="napoveda">Najeď myší na číslo (na telefonu klepni) — ukáže se, jak se počítá. Šedý sloupec = probíhající měsíc, zatím se nehodnotí.</p>' +
-      '<div class="skupina prvni">Výkon · snímek ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '</div>' +
+    return '<p class="napoveda">Najeď myší na číslo (na telefonu klepni) — ukáže se, jak se počítá. Sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí barvou.</p>' +
+      '<div class="skupina prvni">Výkon · data k ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '</div>' +
       METRIKY.map(function (mt) { return mesicniTabulka(c, mt); }).join('') + renderLeady(c, FAKTA);
   }
   function rokMesice(c) { var m = []; for (var i = 1; i <= 12; i++) m.push(c.year * 12 + i); return m; }
@@ -266,8 +266,8 @@
       id: 'm-leady', nazev: 'Přidělené leady A+B', popis: 'validní leady (bez zrušených), vlastník = obchodník',
       tipNadpis: ['Přidělené leady A+B = validní leady (fáze ≠ Zrušený), kde je obchodník vlastníkem; měsíc podle data leadu.',
                   'Tým (celá firma) = všechny validní leady firmy, proto jsou v tabulce i Sabina a Ostatní.',
-                  'Barva: sytější modrá = víc leadů (množství, ne hodnocení).'],
-      typ: 'pocet', modra: true, fmt: pocet, start: start,
+                  'Barva: světlejší šedá = víc leadů (množství, ne hodnocení).'],
+      typ: 'pocet', mnozstvi: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('leady_validni', d, k); }, kdo: d }; })
         .concat([{ nazev: 'Sabina (pre-sales)', v: function (k) { return g('leady_validni', SABINA, k); }, kdo: SABINA }])
         .concat(ostL.length ? [{ nazev: 'Ostatní', title: ostL.join(', '), v: function (k) { return g2('leady_validni', ostL, k); }, kdo: ostL.join(', ') }] : []),
@@ -299,8 +299,8 @@
     h.push(tabulka(c, months, curYm, {
       id: 'm-opsab', nazev: 'Přidělené OP od Sabiny', popis: 'obchodní případy kategorie S-zaměření (jakýkoli stav), měsíc dle otevření',
       tipNadpis: ['Přidělené OP od Sabiny = obchodní případy kategorie S-zaměření (jakýkoli stav), kde je obchodník vlastníkem; měsíc podle data otevření OP.',
-                  'Barva: sytější modrá = víc OP (množství, ne hodnocení).'],
-      typ: 'pocet', modra: true, fmt: pocet, start: start,
+                  'Barva: světlejší šedá = víc OP (množství, ne hodnocení).'],
+      typ: 'pocet', mnozstvi: true, fmt: pocet, start: start,
       radky: ord.map(function (d) { return { nazev: d, oz: true, v: function (k) { return g('op_sabina', d, k); }, kdo: d }; })
         .concat(ostS.length ? [{ nazev: 'Ostatní', title: ostS.join(', '), v: function (k) { return g2('op_sabina', ostS, k); }, kdo: ostS.join(', ') }] : []),
       tym: function (k) { return g2('op_sabina', vsiS, k); }, tymNazev: 'Tým',
@@ -346,7 +346,7 @@
     }); });
     function barva(v) {
       var f = t.typ === 'pocet' ? (hi > 0 ? v / hi : 0) : (ref ? v / (2 * ref) : 0.5);
-      return t.modra ? modra(f) : heatColor(f);   // množství modře, výkon červená → zelená
+      return t.mnozstvi ? mnozstvi(f) : bg(heatColor(f));   // množství šedě, výkon červená → zelená
     }
     function souhrn(r) {
       var ks = months.filter(function (k) { return k <= curYm; });
@@ -365,7 +365,7 @@
         var tp = [t.nazev + ' · ' + nazev + ' · ' + mesRok(k)].concat(t.popisBunky(r, k, t.typ === 'pocet' ? v : null, q));
         if (k === curYm) row += '<td class="akt"' + tip.apply(null, tp.concat(['Probíhající měsíc — zatím neúplný.'])) + '>' + esc(txt) + '</td>';
         else if (!r.oz || v === null || k < t.start[r.nazev] || hi === null) row += '<td' + tip.apply(null, tp) + '>' + esc(txt) + '</td>';
-        else row += '<td class="h" style="' + bg(barva(v)) + '"' + tip.apply(null, tp) + '>' + esc(txt) + '</td>';
+        else row += '<td class="h" style="' + barva(v) + '"' + tip.apply(null, tp) + '>' + esc(txt) + '</td>';
       });
       var s = souhrn(r);
       return row + '<td class="cel sep"' + tip.apply(null, [t.nazev + ' · ' + nazev + ' · ' + c.year].concat(t.popisCelkem(r, s.v, s.q))) + '>' + esc(s.txt) + '</td></tr>';
@@ -383,7 +383,13 @@
                 { n: 'E-mail', z: ['poptávka email'] }, { n: 'Telefon', z: ['poptávka tel.'] }, { n: 'Ostatní', z: [] }];
   var DNY_TYDNE = ['ne', 'po', 'út', 'st', 'čt', 'pá', 'so'];
   function kategorieZdroje(z) { for (var i = 0; i < ZDROJE.length - 1; i++) if (ZDROJE[i].z.indexOf(String(z).toLowerCase()) >= 0) return i; return ZDROJE.length - 1; }
-  function modra(t) { if (t < 0) t = 0; if (t > 1) t = 1; return mix([226, 237, 251], [94, 152, 224], t); }
+  // množství (počty) = šedá škála z palety výrobce, výkon má červená → zelená. Dvě pásma kvůli kontrastu:
+  // málo = tmavě šedé políčko s bílým číslem, hodně = světle šedé s tmavým číslem (obojí kontrast ≥ 7 : 1, neoslňuje).
+  function mnozstvi(t) {
+    if (t < 0) t = 0; if (t > 1) t = 1;
+    return t < 0.5 ? 'background:' + mix([42, 42, 42], [88, 88, 88], t / 0.5) + ';color:#FFFFFF'
+                   : 'background:' + mix([176, 176, 176], [232, 232, 232], (t - 0.5) / 0.5) + ';color:#111111';
+  }
   function isoD(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function zIso(s) { return new Date(+s.substring(0, 4), +s.substring(5, 7) - 1, +s.substring(8, 10)); }
   function plusDny(s, n) { var d = zIso(s); d.setDate(d.getDate() + n); return isoD(d); }
@@ -453,7 +459,7 @@
              (sNev ? '<th' + tip('% nevalidních', 'Podíl leadů ve fázi Zrušený.', 'Červeně = výrazně nad průměrem období.') + '>% nevalid.</th>' : '') + '</tr></thead>';
     };
     var bunkyZdroju = function (zz, max, t0) {
-      return zUkaz.map(function (i) { var v = zz[i]; return v ? '<td class="h" style="' + bg(modra(v / max)) + '"' + tip(t0 + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('');
+      return zUkaz.map(function (i) { var v = zz[i]; return v ? '<td class="h" style="' + (mnozstvi(v / max)) + '"' + tip(t0 + ' · ' + ZDROJE[i].n, 'Leady: ' + v) + '>' + v + '</td>' : '<td class="nula">·</td>'; }).join('');
     };
     var radekCelkem = function (sNev, nazev, cls) {
       return '<tr class="tym' + (cls ? ' ' + cls : '') + '"><td class="l st"' + tip(nazev || 'Celkem', 'Součet za období ' + obdTxt + '.') + '>' + (nazev || 'Celkem') + '</td>' +
@@ -494,7 +500,7 @@
     if (O['Ostatní']) kdo.push('Ostatní');
     var maxO = 1; kdo.forEach(function (k) { zUkaz.forEach(function (i) { maxO = Math.max(maxO, O[k].z[i]); }); });
     h.push('<div>' + sekce('l-kdo', 'Kolik kdo dostal', 'podle vlastníka leadu', ['Vlastník leadu v Raynetu = komu byl lead přidělen.',
-      'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: sytější modrá = víc leadů.']));
+      'Ostatní v období: ' + (ostTxt || 'nikdo') + '.', 'Barva: světlejší šedá = víc leadů.']));
     h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju('Vlastník', true) + '<tbody>' + radekCelkem(true, 'Σ za období', 'nahore'));
     kdo.forEach(function (k) {
       var o = O[k], t0 = k + ' · ' + obdTxt;
@@ -510,7 +516,7 @@
     var maxP = 1;
     klice.forEach(function (k) { var p = prubeh[k]; if (p) zUkaz.forEach(function (i) { maxP = Math.max(maxP, p.z[i]); }); });
     h.push(sekce('l-prubeh', 'Průběh', (poMesicich ? 'po měsících' : 'po dnech') + ' · nejnovější nahoře',
-      ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: sytější modrá = víc leadů.']));
+      ['Leady podle data leadu, rozdělené podle zdroje.', 'Delší období než 62 dní se ukazuje po měsících.', 'Barva: světlejší šedá = víc leadů.']));
     // dlouhá tabulka → součet za období a za každý sloupec hned nahoře
     h.push('<div class="tw uzky"><table class="g lt">' + hlavaZdroju(poMesicich ? 'Měsíc' : 'Den', false) + '<tbody>' + radekCelkem(false, 'Σ za období', 'nahore'));
     klice.forEach(function (k) {
@@ -539,17 +545,17 @@
       '<p><b>Celá doba</b> = od nástupu, <b>3 měsíce</b> = posledních 90 dní: průměr za měsíc (součet ÷ počet dní × 30), aby šli srovnat lidé s různě dlouhou dobou. <b>30 dní</b> = prostý součet.</p>' +
       '<h3>Měsíční data</h3>' +
       '<p>Obrat a zisk = vyhrané OP podle data výhry (OP bez částky se nepočítá). Barva = srovnání v rámci tabulky (zelená vyšší, červená nižší). ' +
-      'Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' + vedMil(c.hranice) + '. Šedý sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí.</p>' +
+      'Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' + vedMil(c.hranice) + '. Sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí barvou.</p>' +
       '<h3>Leady a konverze</h3>' +
       '<p>Konverze A+B = vyhraná OP mimo kategorii S-zaměření (měsíc dle data výhry) ÷ validní leady obchodníka — celkové počty, bez ohledu na to, jestli je OP v Raynetu navázané na lead. ' +
-      'Přidělené leady a OP od Sabiny jsou množství — sytější modrá = víc. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
+      'Přidělené leady a OP od Sabiny jsou množství — světlejší šedá = víc. U konverzí je žlutá = týmová konverze za rok, zelená = dvojnásobek a víc. Celkem u konverzí = ze součtů, ne průměr procent.</p>' +
       '<h3>Leady</h3>' +
       '<p>Záložka Leady = všechny leady firmy podle data leadu, bez ohledu na vlastníka, za zvolené období. Validní = fáze ≠ Zrušený. ' +
       'Zdroje jsou sloučené do 4 hlavních + Ostatní, vlastníci na obchodníky, Sabinu a Ostatní — co je v „Ostatní", ukáže vysvětlivka.</p>' +
       '<h3>Data</h3>' +
       '<p>Sheet obnovuje všechna data najednou — každou noc mezi 5. a 6. hodinou, nebo tlačítkem ' + esc(OBNOV) + '. ' +
       'Kdyby obnova nedoběhla a leady s obchody nebyly ze stejného stažení, konverze se nezobrazí.</p>' +
-      '<p style="color:var(--muted)">Data: snímek ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '.</p>';
+      '<p style="color:var(--muted)">Data k ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '.</p>';
   }
 
   // ─────────────────────────── VYSVĚTLIVKY (hover / klepnutí) ───────────────────────────
