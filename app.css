@@ -1,7 +1,7 @@
 /* Dashboard výkonu obchodníků — vzhled. Načítá ho index.html s ?v=<verze> z version.json (vždy nejnovější). */
   /* Barvy podle webu výrobce: černá a šedá škála (#000 · #242424 · #494949 · #6D6D6D · #929292 · #B6B6B6 · #DBDBDB),
      firemní červená #C70000 jako akcent, tlačítka jako pilulka s jedním hranatým rohem.
-     Význam barev v datech: červená → zelená = výkon (obrat, zisk, skóre, konverze), šedá = množství (počty),
+     Význam barev v datech: červená → zelená = výkon (obrat, zisk, skóre, konverze), počty bez barvy,
      firemní červená = alarm. Čitelnost: tmavé grafitové pozadí (ne čistá černá — menší oslnění od barevných
      políček), text s kontrastem ≥ 7 : 1, na barevných políčkách tmavé tučné číslo. */
   :root {
