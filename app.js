@@ -210,11 +210,26 @@
       row += '<td class="cel sep"' + celT + '>' + esc(mt.pct ? (rO > 0 ? mt.fmt(rZ / rO * 100) : '') : mt.fmt(s)) + '</td></tr>';
       h.push(row);
     });
+    // obrat: i vedoucí obchodu (občas něco prodá) — vlastní řádek bez barvy a alarmu, započte se do Týmu
+    var ved = mt.id === 'obrat' ? (c.vedouci || []) : [];
+    ved.forEach(function (v0) {
+      var d = v0[0], st = ymToIdx(v0[2] || c.year + '-01'), s = 0, nazev = d + ' (vedoucí)';
+      var row = '<tr class="ost"><td class="l st oz"' + tip(nazev, v0[1] + ' — vedoucí obchodu. Započítává se jen do obratu a do řádku Tým, ne do skóre ani dalších tabulek.') + '>' + esc(nazev) + '</td>';
+      months.forEach(function (kk, i) {
+        if (kk > curYm) { row += '<td class="bud"></td>'; return; }
+        if (kk < st) { row += '<td class="dim"></td>'; return; }
+        var v = (c.obYMved[d] || {})[ymKey(kk)] || 0;
+        s += v; tym[i] += v;
+        row += v ? '<td' + tip(mt.nazev + ' · ' + nazev + ' · ' + mesRok(kk), mt.presne(v) + ' = ' + mt.def(kk) + '.') + '>' + esc(mt.fmt(v)) + '</td>' : '<td class="nula">·</td>';
+      });
+      h.push(row + '<td class="cel sep"' + tip(mt.nazev + ' · ' + nazev + ' · ' + c.year, 'Součet = ' + mt.presne(s) + '.') + '>' + esc(mt.fmt(s)) + '</td></tr>');
+    });
+    var tymPopis = ved.length ? 'Součet obchodníků + vedoucí (' + ved.map(function (v0) { return v0[0]; }).join(', ') + ').' : 'Součet obchodníků v tabulce (vedoucí obchodu se nepočítá).';
     var tot = sum(tym), so = sum(tymO), sz = sum(tymZ);
-    h.push('<tr class="tym"><td class="l st"' + tip('Tým', 'Součet obchodníků v tabulce (vedoucí obchodu se nepočítá).') + '>Tým</td>' + months.map(function (kk, i) {
+    h.push('<tr class="tym"><td class="l st"' + tip('Tým', tymPopis) + '>Tým</td>' + months.map(function (kk, i) {
       if (kk > curYm) return '<td class="bud"></td>';
       var t = mt.pct ? (tymO[i] > 0 ? tip('Marže · tým · ' + mesRok(kk), 'Zisk ' + kc(tymZ[i]) + ' ÷ obrat ' + kc(tymO[i]) + ' = ' + des1(tymZ[i] / tymO[i] * 100) + ' %') : '')
-                     : tip(mt.nazev + ' · tým · ' + mesRok(kk), 'Součet obchodníků = ' + mt.presne(tym[i]) + '.');
+                     : tip(mt.nazev + ' · tým · ' + mesRok(kk), (ved.length ? 'Součet obchodníků + vedoucí = ' : 'Součet obchodníků = ') + mt.presne(tym[i]) + '.');
       return '<td' + t + '>' + esc(mt.pct ? (tymO[i] > 0 ? mt.fmt(tymZ[i] / tymO[i] * 100) : '') : mt.fmt(tym[i])) + '</td>';
     }).join('') + '<td class="sep"' + (mt.pct ? (so > 0 ? tip('Marže · tým · ' + c.year, 'Zisk ' + kc(sz) + ' ÷ obrat ' + kc(so) + ' = ' + des1(sz / so * 100) + ' %') : '')
                                                  : tip(mt.nazev + ' · tým · ' + c.year, 'Součet = ' + mt.presne(tot) + '.')) + '>' +
@@ -533,7 +548,7 @@
       'Tři tabulky = tři období, každá seřazená podle svého skóre.</p>' +
       '<p><b>Celá doba</b> = od nástupu, <b>3 měsíce</b> = posledních 90 dní: průměr za měsíc (součet ÷ počet dní × 30), aby šli srovnat lidé s různě dlouhou dobou. <b>30 dní</b> = prostý součet.</p>' +
       '<h3>Měsíční data</h3>' +
-      '<p>Obrat a zisk = vyhrané OP podle data výhry (OP bez částky se nepočítá). Barva = srovnání v rámci tabulky (zelená vyšší, červená nižší). ' +
+      '<p>Obrat a zisk = vyhrané OP podle data výhry (OP bez částky se nepočítá). V obratu je i vedoucí obchodu (vlastní řádek, započte se do Týmu, do skóre ne). Barva = srovnání v rámci tabulky (zelená vyšší, červená nižší). ' +
       'Sytě červený obrat = 2 a více uzavřených měsíců po sobě pod ' + vedMil(c.hranice) + '. Sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí barvou.</p>' +
       '<h3>Leady a konverze</h3>' +
       '<p>Konverze A+B = vyhraná OP mimo kategorii S-zaměření (měsíc dle data výhry) ÷ validní leady obchodníka — celkové počty, bez ohledu na to, jestli je OP v Raynetu navázané na lead. ' +

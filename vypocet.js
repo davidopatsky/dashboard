@@ -33,14 +33,19 @@
     var oz = tym.filter(function (t) { return t.role === 'obchodník'; });
     var presales = tym.filter(function (t) { return t.role === 'pre-sales'; }).map(function (t) { return t.jmeno; });
     var disp = {}; oz.forEach(function (t) { disp[t.jmeno] = t.oz; });
+    // vedoucí (role „vedoucí" v listu nastaveni): jen do obratu — občas něco prodá (David 16. 10.); skóre ani další údaje ne
+    var vedouci = tym.filter(function (t) { return t.role === 'vedoucí'; }), vedByName = {};
+    vedouci.forEach(function (t) { vedByName[t.jmeno] = t.oz; });
 
     var c = {
       rowsOZ: oz.map(function (t) { return [t.oz, t.jmeno, t.id]; }), jmeno: {}, ratC: {}, ratQ: {}, ratM: {}, win: {},
       obYM: {}, ziYM: {}, scYM: {}, nabYM: {}, start: {}, W: W,
       hranice: cislo('hranice_slaby_mesic', 1200000), alarmMesicu: cislo('alarm_mesicu_po_sobe', 2),
       year: year, curMonthIdx: now.getMonth(), todayStr: todayStr, hhmm: dvoj(now.getHours()) + ':' + dvoj(now.getMinutes()), from30Str: from30Str,
-      stazeno: { obchody: pub.obchody || '', aktivity: pub.aktivity || '', leady: pub.leady || '' }
+      stazeno: { obchody: pub.obchody || '', aktivity: pub.aktivity || '', leady: pub.leady || '' },
+      vedouci: vedouci.map(function (t) { return [t.oz, t.jmeno, t.od]; }), obYMved: {}
     };
+    vedouci.forEach(function (t) { c.obYMved[t.oz] = {}; });
 
     // ── okna skóre: celá doba (od nástupu) / 90 dní / 30 dní — vše včetně dneška ──
     oz.forEach(function (t) {
@@ -74,7 +79,11 @@
       if (!win) return;
       pricti('vyhry', kdo, cl, 1);
       if (kat === CAT_SZ) pricti('vyhry_sabina', kdo, cl, 1);
-      if (!d) return;
+      if (!d) {   // vedoucí: jen obrat (výhry s částkou, podle data výhry)
+        var vd = vedByName[r.owner], a0 = Number(r.amount) || 0;
+        if (vd && a0 > 0) doMesice(c.obYMved, vd, cl, a0);
+        return;
+      }
       doOken(d, cl, 'w', 1);
       var amt = Number(r.amount) || 0;
       if (amt <= 0) return;   // chybějící částka = datový artefakt, do obratu nejde
