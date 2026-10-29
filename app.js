@@ -132,7 +132,7 @@
   function renderMesice(c) {
     return '<p class="napoveda">Najeď myší na číslo (na telefonu klepni) — ukáže se, jak se počítá. Sloupec „probíhá“ = aktuální měsíc, zatím se nehodnotí barvou.</p>' +
       '<div class="skupina prvni">Výkon · data k ' + vedDen(c.todayStr) + ' ' + esc(c.hhmm) + '</div>' +
-      METRIKY.map(function (mt) { return mesicniTabulka(c, mt); }).join('') + renderLeady(c, FAKTA);
+      METRIKY.map(function (mt) { return mesicniTabulka(c, mt); }).join('') + renderLeady(c, FAKTA) + renderSabina(c, FAKTA);
   }
   function rokMesice(c) { var m = []; for (var i = 1; i <= 12; i++) m.push(c.year * 12 + i); return m; }
   function hlavickaMesicu(months, curYm) {
@@ -336,6 +336,40 @@
       },
       popisCelkem: function (r, v, q) { return ['Za rok: ' + q.n + ' vyhraných ÷ ' + q.d + ' přidělených' + (q.d > 0 ? ' = ' + proc(q.n / q.d) : '') + '.']; }
     }));
+    return h.join('');
+  }
+
+  // ─────────────────── SABINA (pre-sales): nabídky a telefonáty po měsících ───────────────────
+  // Telefonáty v jakémkoli stavu kromě zrušených — i jen naplánované (David 29. 10.), měsíc podle data naplánování.
+  function renderSabina(c, F) {
+    if (!F || !F.presales || nesoulad(c, F)) return '';
+    var kdo = F.presales, x = F.x, curYm = c.year * 12 + c.curMonthIdx + 1, months = rokMesice(c);
+    var g = function (met, k) { return ((x[met] || {})[kdo] || {})[k] || 0; };
+    var tel = function (k) { return g('tel_realizovane', k) + g('tel_planovane', k) + g('tel_jine', k); };
+    var radky = [
+      { nazev: 'Vytvořené nabídky', v: function (k) { return g('nabidky', k); }, budouci: false,
+        tip: function (k, v) { return ['Nabídky s vlastníkem ' + kdo + ' a datem platnosti od ' + vMes(k) + ': ' + v + '.']; } },
+      { nazev: 'Telefonáty', v: tel, budouci: true,
+        tip: function (k, v) { return ['Realizované: ' + g('tel_realizovane', k) + ' · naplánované: ' + g('tel_planovane', k) + (g('tel_jine', k) ? ' · jiný stav: ' + g('tel_jine', k) : ''),
+                                       'Zrušené (nezapočtené): ' + g('tel_zrusene', k), 'Vlastník telefonátu = ' + kdo + ', měsíc podle data naplánování.']; } }
+    ];
+    var h = ['<div class="skupina">Sabina · pre-sales</div>'];
+    h.push(sekce('m-sabina', 'Sabina', 'vytvořené nabídky a telefonáty po měsících', ['Vytvořené nabídky = nabídky, kde je vlastníkem Sabina; měsíc podle data platnosti od (= den vytvoření).',
+      'Telefonáty = aktivity typu telefonát, kde je Sabina vlastníkem, v jakémkoli stavu kromě zrušených — tedy i jen naplánované; měsíc podle data naplánování.',
+      'Celkem = součet za rok (u telefonátů včetně naplánovaných na další měsíce).']));
+    h.push('<div class="tw"><table class="g mx"><thead><tr><th class="l st">Činnost</th>' + hlavickaMesicu(months, curYm) + '<th class="sep">Celkem</th></tr></thead><tbody>');
+    radky.forEach(function (r) {
+      var s = 0, row = '<tr><td class="l st oz">' + esc(r.nazev) + '</td>';
+      months.forEach(function (k) {
+        var v = r.v(k);
+        if (k > curYm && !(r.budouci && v)) { row += '<td class="bud"></td>'; return; }
+        s += v;
+        var tp = [r.nazev + ' · ' + mesRok(k)].concat(r.tip(k, v)).concat(k === curYm ? ['Probíhající měsíc — zatím neúplný.'] : k > curYm ? ['Budoucí měsíc — jen naplánované.'] : []);
+        row += v ? '<td' + (k === curYm ? ' class="akt"' : '') + tip.apply(null, tp) + '>' + v + '</td>' : '<td class="nula"' + tip.apply(null, tp) + '>·</td>';
+      });
+      h.push(row + '<td class="cel sep"' + tip(r.nazev + ' · ' + c.year, 'Součet za rok: ' + s + '.') + '>' + s + '</td></tr>');
+    });
+    h.push('</tbody></table></div>');
     return h.join('');
   }
 

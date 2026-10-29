@@ -91,8 +91,13 @@
       doOken(d, cl, 'o', amt); doOken(d, cl, 'z', prof);
       doMesice(c.obYM, d, cl, amt); doMesice(c.ziYM, d, cl, prof);
     });
-    // aktivity: realizované schůzky (vlastník schůzky) a nabídky (vlastník nabídky)
+    // aktivity: realizované schůzky (vlastník schůzky) a nabídky (vlastník nabídky);
+    // nabídky a telefonáty navíc po osobě × měsíci pro kohokoli (sekce Sabina) — telefonáty v jakémkoli stavu
+    var TEL = { COMPLETED: 'tel_realizovane', SCHEDULED: 'tel_planovane', CANCELLED: 'tel_zrusene' };
     objekty(D.aktivity).forEach(function (r) {
+      var kdo = disp[r.owner] || r.owner;
+      if (r.typ === 'nabídka') pricti('nabidky', kdo, r.datum, 1);
+      else if (r.typ === 'telefonát') pricti(TEL[r.status] || 'tel_jine', kdo, r.datum, 1);
       var d = disp[r.owner]; if (!d) return;
       if (r.typ === 'schůzka' && r.status === 'COMPLETED') { doOken(d, r.datum, 's', 1); doMesice(c.scYM, d, r.datum, 1); }
       else if (r.typ === 'nabídka') { doOken(d, r.datum, 'n', 1); doMesice(c.nabYM, d, r.datum, 1); }
