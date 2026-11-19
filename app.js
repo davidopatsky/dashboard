@@ -572,6 +572,31 @@
   function rozsahJeVolba(id) { return OBDOBI_L.some(function (o) { return o.id === id; }); }
   function RANGE_OD(c) { return c.year + '-01-01'; }
 
+  // ─────────────────── SOUHRN — měsíc × člověk, jednoduchá tabulka ke zkopírování (např. pro AI asistenta) ───────────────────
+  var SOUHRN_COLS = ['mesic', 'oz', 'jmeno', 'role', 'vyhry', 'obrat', 'zisk', 'schuzky', 'nabidky', 'stazeno'];
+  function souhrnCsv(c) {
+    var b = function (v) { v = v === null || v === undefined ? '' : String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    return [SOUHRN_COLS.join(';')].concat(c.souhrn.map(function (r) { return SOUHRN_COLS.map(function (k) { return b(r[k]); }).join(';'); })).join('\n');
+  }
+  function renderSouhrn(c) {
+    var h = ['<div class="filtr"><button type="button" class="tlac" data-souhrn="kopirovat">Kopírovat CSV</button>' +
+             '<button type="button" class="tlac" data-souhrn="stahnout">Stáhnout CSV</button>' +
+             '<span class="pozn">Měsíc × člověk, od ledna do aktuálního měsíce · data k ' + esc(vedDen(c.todayStr) + ' ' + c.hhmm) +
+             ' · stejná pravidla jako zbytek dashboardu · vedoucí jen obrat · CSV odděleno středníkem</span></div>'];
+    h.push('<div class="tw uzky"><table class="g lt"><thead><tr><th class="l st">Měsíc</th><th class="l">OZ</th><th class="l">Role</th>' +
+      '<th' + tip('Výhry', 'Počet OP ve stavu Výhra podle data výhry.') + '>Výhry</th><th' + tip('Obrat', 'Součet částek výher s vyplněnou částkou (bez DPH).') + '>Obrat (Kč)</th>' +
+      '<th' + tip('Zisk', 'Součet obchodního zisku výher s vyplněnou částkou.') + '>Zisk (Kč)</th><th' + tip('Schůzky', 'Realizované schůzky, kde je člověk vlastníkem.') + '>Schůzky</th>' +
+      '<th' + tip('Nabídky', 'Nabídky podle data platnosti od.') + '>Nabídky</th></tr></thead><tbody>');
+    var n = function (v) { return v === null ? '<td class="nula">–</td>' : '<td>' + tis(v) + '</td>'; };
+    c.souhrn.slice().sort(function (x, y) { return x.mesic < y.mesic ? 1 : x.mesic > y.mesic ? -1 : 0; }).forEach(function (r, i, a) {   // nejnovější měsíc nahoře, uvnitř pořadí z nastaveni
+      var novy = i > 0 && a[i - 1].mesic !== r.mesic;
+      h.push('<tr' + (novy ? ' class="novy-mes"' : '') + '><td class="l st oz">' + esc(MESIC[parseInt(r.mesic.substring(5, 7), 10) - 1] + ' ' + r.mesic.substring(0, 4)) + '</td>' +
+        '<td class="l">' + esc(r.oz) + '</td><td class="l muted">' + esc(r.role) + '</td>' + n(r.vyhry) + n(r.obrat) + n(r.zisk) + n(r.schuzky) + n(r.nabidky) + '</tr>');
+    });
+    h.push('</tbody></table></div>');
+    return h.join('');
+  }
+
   // ─────────────────────────── OKNO ⓘ ───────────────────────────
   function info(c) {
     return '<h2>Jak se počítá</h2>' +
@@ -630,14 +655,14 @@
   var C = null, FAKTA = null, stav = { tab: 'skore', leadyObd: '30d' };
   function zHashe() {
     var p = location.hash.replace('#', '').split('/');
-    stav.tab = p[0] === 'mesice' || p[0] === 'leady' ? p[0] : 'skore';
+    stav.tab = p[0] === 'mesice' || p[0] === 'leady' || p[0] === 'souhrn' ? p[0] : 'skore';
     if (p[0] === 'leady' && p[1]) stav.leadyObd = p[1];
   }
   function doHashe() { history.replaceState(null, '', '#' + stav.tab + (stav.tab === 'leady' ? '/' + stav.leadyObd : '')); }
   function vykresli() {
     skryjTip();
     document.querySelectorAll('[data-tab]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-tab') === stav.tab)); });
-    document.getElementById('obsah').innerHTML = stav.tab === 'mesice' ? renderMesice(C) : stav.tab === 'leady' ? renderLeadyTab(C, FAKTA) : renderSkore(C);
+    document.getElementById('obsah').innerHTML = stav.tab === 'mesice' ? renderMesice(C) : stav.tab === 'leady' ? renderLeadyTab(C, FAKTA) : stav.tab === 'souhrn' ? renderSouhrn(C) : renderSkore(C);
     // rychlá navigace po tabulkách (v liště nahoře)
     var nav = document.getElementById('subnav');
     if (stav.tab === 'mesice') {
@@ -658,6 +683,17 @@
     var b = e.target.closest('button'); if (!b || !C) return;
     if (b.dataset.tab) { stav.tab = b.dataset.tab; vykresli(); window.scrollTo(0, 0); }
     else if (b.dataset.lobd) { stav.leadyObd = b.dataset.lobd; vykresli(); }
+    else if (b.dataset.souhrn) {
+      var csv = souhrnCsv(C);
+      if (b.dataset.souhrn === 'stahnout') {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));
+        a.download = 'souhrn_mesice_' + C.todayStr + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+      } else {
+        var hotovo = function () { b.textContent = 'Zkopírováno ✓'; setTimeout(function () { b.textContent = 'Kopírovat CSV'; }, 2000); };
+        if (navigator.clipboard) navigator.clipboard.writeText(csv).then(hotovo, function () { b.textContent = 'Kopírování selhalo'; });
+      }
+    }
     else if (b.dataset.skok) {
       var cil = document.getElementById(b.dataset.skok), hl = document.querySelector('.top').offsetHeight;
       if (cil) window.scrollTo({ top: cil.getBoundingClientRect().top + window.pageYOffset - hl - 10, behavior: 'smooth' });

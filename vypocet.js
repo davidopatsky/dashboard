@@ -129,7 +129,45 @@
     c.ratC = skore('c'); c.ratQ = skore('q'); c.ratM = skore('m');
 
     var F = { x: x, presales: presales[0] || '', stav: c.stazeno, leadyDny: { radky: leadyDny, stazeno: pub.leady || '' } };
+    c.souhrn = souhrnMesice(D, tym, year, now.getMonth() + 1, pub.obchody || '');
     return { c: c, F: F };
+  }
+
+  // Souhrn po měsících × člověk (záložka Souhrn, pro AI asistenta) — stejná pravidla jako výpočty výše:
+  // výhry = E_WIN podle closure_date; obrat/zisk = jen výhry s amount > 0; schůzky = realizované (COMPLETED);
+  // nabídky podle data. Vedoucí jen obrat, ostatní údaje prázdné. Měsíce od ledna do aktuálního.
+  function souhrnMesice(D, tym, year, curM, stazeno) {
+    var byName = {}, out = [];
+    tym.forEach(function (t) { byName[t.jmeno] = t; });
+    var z = {};   // z[jmeno][RRRR-MM] = {vyhry, obrat, zisk, schuzky, nabidky}
+    var bunka = function (j, d) {
+      var m = String(d || '').substring(0, 7);
+      if (!byName[j] || m.substring(0, 4) !== String(year)) return null;
+      var o = (z[j] = z[j] || {});
+      return (o[m] = o[m] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 });
+    };
+    objekty(D.obchody).forEach(function (r) {
+      if (r.status !== 'E_WIN') return;
+      var b = bunka(r.owner, d10(r.closure_date)); if (!b) return;
+      b.vyhry++;
+      var amt = Number(r.amount) || 0;
+      if (amt > 0) { b.obrat += amt; b.zisk += Number(r.profit) || 0; }
+    });
+    objekty(D.aktivity).forEach(function (r) {
+      var b;
+      if (r.typ === 'schůzka' && r.status === 'COMPLETED') { b = bunka(r.owner, r.datum); if (b) b.schuzky++; }
+      else if (r.typ === 'nabídka') { b = bunka(r.owner, r.datum); if (b) b.nabidky++; }
+    });
+    for (var m = 1; m <= curM; m++) {
+      var mes = year + '-' + dvoj(m);
+      tym.forEach(function (t) {
+        if (mes < t.od) return;
+        var b = (z[t.jmeno] || {})[mes] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 }, ved = t.role === 'vedoucí';
+        out.push({ mesic: mes, oz: t.oz, jmeno: t.jmeno, role: t.role, vyhry: ved ? null : b.vyhry, obrat: Math.round(b.obrat),
+                   zisk: ved ? null : Math.round(b.zisk), schuzky: ved ? null : b.schuzky, nabidky: ved ? null : b.nabidky, stazeno: stazeno });
+      });
+    }
+    return out;
   }
 
   root.Vypocet = { spocitej: spocitej };
