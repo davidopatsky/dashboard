@@ -130,21 +130,25 @@
 
     var F = { x: x, presales: presales[0] || '', stav: c.stazeno, leadyDny: { radky: leadyDny, stazeno: pub.leady || '' } };
     c.souhrn = souhrnMesice(D, tym, year, now.getMonth() + 1, pub.obchody || '');
+    c.tymVse = tym;
     return { c: c, F: F };
   }
 
-  // Souhrn po měsících × člověk (záložka Souhrn, pro AI asistenta) — stejná pravidla jako výpočty výše:
-  // výhry = E_WIN podle closure_date; obrat/zisk = jen výhry s amount > 0; schůzky = realizované (COMPLETED);
-  // nabídky podle data. Vedoucí jen obrat, ostatní údaje prázdné. Měsíce od ledna do aktuálního.
-  function souhrnMesice(D, tym, year, curM, stazeno) {
-    var byName = {}, out = [];
+  // Souhrn měsíc (nebo den) × člověk — záložka Souhrn v appce a listy „souhrn" / „souhrn_den" v Sheetu (pro AI asistenta).
+  // Jedna logika pro obojí: Apps Script v Sheetu používá TENTO soubor beze změny (kopie Vypocet.js v projektu skriptu).
+  // Pravidla stejná jako výpočty výše: výhry = E_WIN podle closure_date; obrat/zisk = jen výhry s amount > 0;
+  // schůzky = realizované (COMPLETED) podle data; nabídky podle data. Vedoucí jen obrat, ostatní prázdné.
+  // marze_pct = zisk ÷ obrat × 100 (1 desetinné místo), prázdná při obratu 0.
+  function souhrnRadky(D, tym, obdobi, sloupec, stazeno) {   // obdobi = klíče 'RRRR-MM' nebo 'RRRR-MM-DD'
+    var byName = {}, chci = {}, out = [], L = obdobi.length ? obdobi[0].length : 7;
     tym.forEach(function (t) { byName[t.jmeno] = t; });
-    var z = {};   // z[jmeno][RRRR-MM] = {vyhry, obrat, zisk, schuzky, nabidky}
+    obdobi.forEach(function (k) { chci[k] = true; });
+    var z = {};   // z[jmeno][klíč] = {vyhry, obrat, zisk, schuzky, nabidky}
     var bunka = function (j, d) {
-      var m = String(d || '').substring(0, 7);
-      if (!byName[j] || m.substring(0, 4) !== String(year)) return null;
+      var k = String(d || '').substring(0, L);
+      if (!byName[j] || !chci[k]) return null;
       var o = (z[j] = z[j] || {});
-      return (o[m] = o[m] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 });
+      return (o[k] = o[k] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 });
     };
     objekty(D.obchody).forEach(function (r) {
       if (r.status !== 'E_WIN') return;
@@ -155,20 +159,41 @@
     });
     objekty(D.aktivity).forEach(function (r) {
       var b;
-      if (r.typ === 'schůzka' && r.status === 'COMPLETED') { b = bunka(r.owner, r.datum); if (b) b.schuzky++; }
-      else if (r.typ === 'nabídka') { b = bunka(r.owner, r.datum); if (b) b.nabidky++; }
+      if (r.typ === 'schůzka' && r.status === 'COMPLETED') { b = bunka(r.owner, d10(r.datum)); if (b) b.schuzky++; }
+      else if (r.typ === 'nabídka') { b = bunka(r.owner, d10(r.datum)); if (b) b.nabidky++; }
     });
-    for (var m = 1; m <= curM; m++) {
-      var mes = year + '-' + dvoj(m);
+    obdobi.forEach(function (k) {
       tym.forEach(function (t) {
-        if (mes < t.od) return;
-        var b = (z[t.jmeno] || {})[mes] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 }, ved = t.role === 'vedoucí';
-        out.push({ mesic: mes, oz: t.oz, jmeno: t.jmeno, role: t.role, vyhry: ved ? null : b.vyhry, obrat: Math.round(b.obrat),
-                   zisk: ved ? null : Math.round(b.zisk), schuzky: ved ? null : b.schuzky, nabidky: ved ? null : b.nabidky, stazeno: stazeno });
+        if (k.substring(0, 7) < t.od) return;
+        var b = (z[t.jmeno] || {})[k] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 }, ved = t.role === 'vedoucí';
+        var obrat = Math.round(b.obrat), zisk = Math.round(b.zisk), r = {};
+        r[sloupec] = k;
+        r.oz = t.oz; r.jmeno = t.jmeno; r.role = t.role; r.vyhry = ved ? null : b.vyhry; r.obrat = obrat;
+        r.zisk = ved ? null : zisk; r.marze_pct = ved || !obrat ? null : Math.round(zisk / obrat * 1000) / 10;
+        r.schuzky = ved ? null : b.schuzky; r.nabidky = ved ? null : b.nabidky; r.stazeno = stazeno;
+        out.push(r);
       });
-    }
+    });
     return out;
   }
+  function souhrnMesice(D, tym, year, curM, stazeno) {
+    var mes = [];
+    for (var m = 1; m <= curM; m++) mes.push(year + '-' + dvoj(m));
+    return souhrnRadky(D, tym, mes, 'mesic', stazeno);
+  }
+  // po dnech: minulý a aktuální měsíc, každý den až do dneška (i dny s nulou — ať jde srovnat 1.–N. tento vs. minulý měsíc)
+  function souhrnDny(D, tym, now, stazeno) {
+    var dny = [], d = new Date(now.getFullYear(), now.getMonth() - 1, 1), konec = ds(now);
+    while (ds(d) <= konec) { dny.push(ds(d)); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1); }
+    return souhrnRadky(D, tym, dny, 'datum', stazeno);
+  }
+  // Pro Apps Script: { mesice: [...], dny: [...] } ze stejných vstupů jako spocitej(D)
+  function souhrn(D) {
+    var x = spocitej(D), c = x.c;
+    var k = String((D.publikovano || {}).obchody || '');
+    var now = /^\d{4}-\d{2}-\d{2}/.test(k) ? new Date(+k.substring(0, 4), +k.substring(5, 7) - 1, +k.substring(8, 10)) : new Date();
+    return { mesice: c.souhrn, dny: souhrnDny(D, c.tymVse, now, k) };
+  }
 
-  root.Vypocet = { spocitej: spocitej };
+  root.Vypocet = { spocitej: spocitej, souhrn: souhrn };
 })(typeof window !== 'undefined' ? window : this);

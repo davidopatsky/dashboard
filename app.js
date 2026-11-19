@@ -573,7 +573,7 @@
   function RANGE_OD(c) { return c.year + '-01-01'; }
 
   // ─────────────────── SOUHRN — měsíc × člověk, jednoduchá tabulka ke zkopírování (např. pro AI asistenta) ───────────────────
-  var SOUHRN_COLS = ['mesic', 'oz', 'jmeno', 'role', 'vyhry', 'obrat', 'zisk', 'schuzky', 'nabidky', 'stazeno'];
+  var SOUHRN_COLS = ['mesic', 'oz', 'jmeno', 'role', 'vyhry', 'obrat', 'zisk', 'marze_pct', 'schuzky', 'nabidky', 'stazeno'];
   function souhrnCsv(c) {
     var b = function (v) { v = v === null || v === undefined ? '' : String(v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
     return [SOUHRN_COLS.join(';')].concat(c.souhrn.map(function (r) { return SOUHRN_COLS.map(function (k) { return b(r[k]); }).join(';'); })).join('\n');
@@ -585,13 +585,14 @@
              ' · stejná pravidla jako zbytek dashboardu · vedoucí jen obrat · CSV odděleno středníkem</span></div>'];
     h.push('<div class="tw uzky"><table class="g lt"><thead><tr><th class="l st">Měsíc</th><th class="l">OZ</th><th class="l">Role</th>' +
       '<th' + tip('Výhry', 'Počet OP ve stavu Výhra podle data výhry.') + '>Výhry</th><th' + tip('Obrat', 'Součet částek výher s vyplněnou částkou (bez DPH).') + '>Obrat (Kč)</th>' +
-      '<th' + tip('Zisk', 'Součet obchodního zisku výher s vyplněnou částkou.') + '>Zisk (Kč)</th><th' + tip('Schůzky', 'Realizované schůzky, kde je člověk vlastníkem.') + '>Schůzky</th>' +
+      '<th' + tip('Zisk', 'Součet obchodního zisku výher s vyplněnou částkou.') + '>Zisk (Kč)</th>' +
+      '<th' + tip('Marže', 'Zisk ÷ obrat × 100, jedno desetinné místo. Prázdné, když je obrat 0.') + '>Marže %</th><th' + tip('Schůzky', 'Realizované schůzky, kde je člověk vlastníkem.') + '>Schůzky</th>' +
       '<th' + tip('Nabídky', 'Nabídky podle data platnosti od.') + '>Nabídky</th></tr></thead><tbody>');
     var n = function (v) { return v === null ? '<td class="nula">–</td>' : '<td>' + tis(v) + '</td>'; };
     c.souhrn.slice().sort(function (x, y) { return x.mesic < y.mesic ? 1 : x.mesic > y.mesic ? -1 : 0; }).forEach(function (r, i, a) {   // nejnovější měsíc nahoře, uvnitř pořadí z nastaveni
       var novy = i > 0 && a[i - 1].mesic !== r.mesic;
       h.push('<tr' + (novy ? ' class="novy-mes"' : '') + '><td class="l st oz">' + esc(MESIC[parseInt(r.mesic.substring(5, 7), 10) - 1] + ' ' + r.mesic.substring(0, 4)) + '</td>' +
-        '<td class="l">' + esc(r.oz) + '</td><td class="l muted">' + esc(r.role) + '</td>' + n(r.vyhry) + n(r.obrat) + n(r.zisk) + n(r.schuzky) + n(r.nabidky) + '</tr>');
+        '<td class="l">' + esc(r.oz) + '</td><td class="l muted">' + esc(r.role) + '</td>' + n(r.vyhry) + n(r.obrat) + n(r.zisk) + (r.marze_pct === null ? '<td class="nula">–</td>' : '<td>' + String(r.marze_pct).replace('.', ',') + '</td>') + n(r.schuzky) + n(r.nabidky) + '</tr>');
     });
     h.push('</tbody></table></div>');
     return h.join('');
