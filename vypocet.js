@@ -162,7 +162,7 @@
       if (r.typ === 'schůzka' && r.status === 'COMPLETED') { b = bunka(r.owner, d10(r.datum)); if (b) b.schuzky++; }
       else if (r.typ === 'nabídka') { b = bunka(r.owner, d10(r.datum)); if (b) b.nabidky++; }
     });
-    obdobi.forEach(function (k) {
+    obdobi.slice().reverse().forEach(function (k) {   // řazení jako v appce: nejnovější nahoře, uvnitř pořadí z listu nastaveni
       tym.forEach(function (t) {
         if (k.substring(0, 7) < t.od) return;
         var b = (z[t.jmeno] || {})[k] || { vyhry: 0, obrat: 0, zisk: 0, schuzky: 0, nabidky: 0 }, ved = t.role === 'vedoucí';
